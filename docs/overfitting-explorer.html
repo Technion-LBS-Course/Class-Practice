@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overfitting, Leakage & Model Comparison</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Heebo',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.7;overflow-x:hidden}
+.top-nav{position:fixed;top:0;left:0;right:0;height:54px;background:rgba(15,23,42,.85);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,.15);display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;z-index:100}
+.top-nav a{color:#94a3b8;text-decoration:none;font-size:.9rem}
+.lang-toggle button{background:transparent;border:1px solid rgba(148,163,184,.3);color:#94a3b8;padding:.3rem .7rem;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600}
+.lang-toggle button.active{background:#6366f1;color:#fff;border-color:#6366f1}
+.wrap{max-width:860px;margin:0 auto;padding:5rem 1.2rem 4rem}
+.hero{text-align:center;padding:1rem 0 2.5rem}
+.hero h1{font-size:2.2rem;font-weight:800;background:linear-gradient(90deg,#6366f1,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.3}
+.hero p{color:#94a3b8;font-size:1.05rem;max-width:620px;margin:1rem auto 0}
+.section{background:#1a1a2e;border:1px solid rgba(148,163,184,.15);border-radius:18px;padding:1.8rem;margin:1.4rem 0}
+.section h2{font-size:1.5rem;font-weight:700;margin-bottom:.4rem;color:#f1f5f9}
+.section .lead{color:#94a3b8;margin-bottom:1.3rem}
+.eyebrow{display:inline-block;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#818cf8;background:rgba(99,102,241,.12);padding:.25rem .7rem;border-radius:999px;margin-bottom:.7rem}
+canvas{display:block;background:#0b1120;border-radius:12px;border:1px solid rgba(148,163,184,.12)}
+.playground{display:grid;grid-template-columns:1fr 320px;gap:1.4rem;align-items:start}
+@media(max-width:760px){.playground{grid-template-columns:1fr}}
+.controls{display:flex;flex-direction:column;gap:1rem}
+.seg{display:flex;gap:.4rem;background:#0b1120;padding:.35rem;border-radius:10px;border:1px solid rgba(148,163,184,.12)}
+.seg button{flex:1;background:transparent;border:none;color:#94a3b8;padding:.5rem;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600;font-size:.9rem}
+.seg button.active{background:#6366f1;color:#fff}
+.slider-row label{display:flex;justify-content:space-between;font-size:.92rem;margin-bottom:.5rem;color:#cbd5e1}
+.slider-row label b{color:#818cf8;font-size:1.1rem}
+input[type=range]{width:100%;height:7px;-webkit-appearance:none;background:linear-gradient(90deg,#22c55e,#f59e0b,#ef4444);border-radius:4px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+input[type=range]:disabled{opacity:.35}
+.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;text-align:center}
+.metric{background:#0b1120;border:1px solid rgba(148,163,184,.12);border-radius:10px;padding:.7rem .4rem}
+.metric .v{font-size:1.5rem;font-weight:800;line-height:1}
+.metric .k{font-size:.72rem;color:#94a3b8;margin-top:.3rem}
+.m-train .v{color:#22c55e}.m-test .v{color:#3b82f6}.m-gap .v{color:#f87171}
+.callout{border-radius:12px;padding:.9rem 1rem;font-size:.95rem;border:1px solid}
+.c-good{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:#86efac}
+.c-warn{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:#fca5a5}
+.c-info{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.3);color:#c4b5fd}
+.legend{display:flex;gap:1.1rem;flex-wrap:wrap;font-size:.82rem;color:#94a3b8;margin-top:.7rem}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.bars{display:flex;flex-direction:column;gap:.7rem;margin-top:.5rem}
+.barrow{display:grid;grid-template-columns:120px 1fr 56px;align-items:center;gap:.7rem}
+.barrow .name{font-size:.9rem;color:#cbd5e1}
+.bartrack{background:#0b1120;border-radius:7px;height:26px;overflow:hidden;border:1px solid rgba(148,163,184,.12)}
+.barfill{height:100%;border-radius:7px;transition:width .5s ease}
+.barrow .pct{font-weight:700;text-align:left;font-size:.95rem}
+.winner{outline:2px solid #22c55e;border-radius:9px}
+.btn{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:.7rem 1.3rem;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:.95rem}
+.btn.secondary{background:#0b1120;border:1px solid rgba(148,163,184,.25);color:#cbd5e1}
+.toggle-leak{display:flex;align-items:center;gap:.7rem;margin:.3rem 0 1rem}
+.switch{position:relative;width:50px;height:28px;background:#334155;border-radius:999px;cursor:pointer;transition:.2s}
+.switch.on{background:#ef4444}
+.switch .knob{position:absolute;top:3px;right:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:.2s}
+.switch.on .knob{right:25px}
+.splitbar{display:flex;gap:.4rem;margin-top:.5rem}
+.splitbar>div{border-radius:10px;padding:.8rem .5rem;display:flex;flex-direction:column;gap:.2rem;font-size:.8rem;color:#cbd5e1;text-align:center}
+.splitbar>div b{font-size:.92rem;color:#f1f5f9}
+.seg-tr{background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.3)}
+.seg-va{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.3)}
+.seg-te{background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.3)}
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.4rem}
+@media(max-width:640px){.cmp2{grid-template-columns:1fr}}
+.modelcard{background:#0b1120;border:1px solid rgba(148,163,184,.15);border-radius:12px;padding:1rem;position:relative}
+.modelcard h3{font-size:1rem;margin-bottom:.15rem;color:#f1f5f9}
+.modelcard .sub{font-size:.78rem;color:#94a3b8;margin-bottom:.6rem}
+.cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:3px;font-size:.7rem;margin:.5rem 0 .7rem}
+.cm>div{padding:.34rem;text-align:center;border-radius:5px;background:#1a1a2e;color:#cbd5e1}
+.cm .hd{background:transparent;color:#64748b;font-size:.64rem;display:flex;align-items:center;justify-content:center}
+.cm .tp{background:rgba(34,197,94,.18);color:#86efac;font-weight:700}
+.cm .tn{background:rgba(59,130,246,.14);color:#93c5fd}
+.cm .fp,.cm .fn{background:rgba(239,68,68,.16);color:#fca5a5}
+.mline{display:flex;justify-content:space-between;font-size:.85rem;padding:.26rem .45rem;border-radius:6px;color:#cbd5e1}
+.mline.on{background:rgba(99,102,241,.22);color:#fff;font-weight:700}
+.mline b{font-variant-numeric:tabular-nums}
+.win-badge{position:absolute;top:.7rem;left:.7rem;background:#22c55e;color:#04210f;font-size:.7rem;font-weight:800;padding:.18rem .55rem;border-radius:999px;display:none}
+.win-badge.show{display:block}
+.sub-h{font-size:1.05rem;font-weight:700;color:#f1f5f9;margin:1.4rem 0 .6rem}
+.lkcard{background:#0b1120;border:1px solid rgba(148,163,184,.15);border-radius:11px;padding:.85rem 1rem;margin-bottom:.6rem;font-size:.92rem;color:#cbd5e1}
+.lkcard b{color:#f1f5f9}
+.lk-how{line-height:1.85}.lk-how b{color:#86efac}
+.takeaways{display:flex;flex-direction:column;gap:.9rem}
+.tk{display:flex;gap:.9rem;align-items:flex-start;background:#0b1120;border:1px solid rgba(148,163,184,.12);border-radius:12px;padding:1rem}
+.tk .n{flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#c084fc);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;color:#fff}
+.note{font-size:.85rem;color:#64748b;margin-top:.6rem}
+b.en{color:#a5b4fc;font-weight:600}
+</style>
+</head>
+<body>
+<div class="top-nav">
+  <a href="../index.html" data-i18n="nav_back">‹ חזרה למדריכים</a>
+  <div class="lang-toggle">
+    <button id="bt-he" class="active" onclick="setLang('he')">HE</button>
+    <button id="bt-en" onclick="setLang('en')">EN</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h1 data-i18n="title">איך מודלים לומדים — ולמה הם נכשלים</h1>
+    <p data-i18n="subtitle">כבר ראיתם baseline ומודל ראשון. עכשיו השאלה האמיתית: למה מודל אחד יוצא חלק ואחד "משנן", מתי הציון על ה-test משקר לכם, ואיך באמת בוחרים מנצח. הכול חי — מודלים אמיתיים שמתאמנים כאן בדפדפן.</p>
+  </div>
+
+  <!-- ================= PLAYGROUND ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb1">המגרש</span>
+    <h2 data-i18n="pg_title">תזיזו את המורכבות — ותראו overfitting קורה</h2>
+    <p class="lead" data-i18n="pg_lead">אותו דאטה בדיוק (עיגולים = train, משולשים = test). בחרו מודל, ושַׂחקו עם המורכבות. שימו לב למשולשים שנצבעים <b style="color:#f87171">אדום</b> — אלה נקודות test שהמודל טועה בהן.</p>
+    <div class="playground">
+      <div>
+        <canvas id="cv" width="380" height="380"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:#22c55e"></span> <span data-i18n="lg_a">מחלקה A · train</span></span>
+          <span><span class="dot" style="background:#818cf8"></span> <span data-i18n="lg_b">מחלקה B · train</span></span>
+          <span>▲ <span data-i18n="lg_test">test</span></span>
+          <span><span class="dot" style="background:#ef4444"></span> <span data-i18n="lg_err">test שגוי</span></span>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="seg" id="modelSeg">
+          <button class="active" data-m="tree" onclick="pickModel('tree')" data-i18n="m_tree">עץ</button>
+          <button data-m="linear" onclick="pickModel('linear')" data-i18n="m_linear">לוגיסטי</button>
+          <button data-m="forest" onclick="pickModel('forest')" data-i18n="m_forest">יער</button>
+        </div>
+        <div class="slider-row" id="depthWrap">
+          <label><span data-i18n="depth_lbl">מורכבות (עומק העץ)</span> <b id="depthVal">4</b></label>
+          <input type="range" id="depth" min="1" max="14" value="4" step="1" oninput="onDepth()">
+        </div>
+        <div class="metrics">
+          <div class="metric m-train"><div class="v" id="mTrain">–</div><div class="k" data-i18n="k_train">דיוק TRAIN</div></div>
+          <div class="metric m-test"><div class="v" id="mTest">–</div><div class="k" data-i18n="k_test">דיוק TEST</div></div>
+          <div class="metric m-gap"><div class="v" id="mGap">–</div><div class="k" data-i18n="k_gap">הפער</div></div>
+        </div>
+        <div class="callout c-info" id="pgNote"></div>
+      </div>
+    </div>
+    <p class="note" id="mechNote"></p>
+  </div>
+
+  <!-- ================= THE GAP / U-CURVE ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb2">הלב</span>
+    <h2 data-i18n="u_title">הפער בין train ל-test</h2>
+    <p class="lead" data-i18n="u_lead">הנה אותו עץ, בכל עומק מ-1 עד 14, מאומן מחדש: הקו הירוק (train) רק יורד, הכחול (test) יורד ואז <b>עולה</b>. הפער ביניהם = ה-overfitting. הנקודה הכי נמוכה בכחול = המורכבות הנכונה.</p>
+    <canvas id="ucurve" width="800" height="300" style="width:100%"></canvas>
+    <div class="callout c-info" style="margin-top:1rem" data-i18n="u_note"><b>אז מה כן מתקן overfitting?</b> לא ה-test. אלא: פחות מורכבות (להגביל עומק), רגולריזציה (לרסן את המודל), או יותר דאטה. ה-test רק אומר לכם <i>שיש</i> בעיה ו<i>איפה</i> נקודת המתיקות.</div>
+  </div>
+
+  <!-- ================= VALIDATION SET ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="ebv">שלוש קבוצות</span>
+    <h2 data-i18n="v_title">train / validation / test — ולמה לא מספיק שתיים</h2>
+    <p class="lead" data-i18n="v_lead">רגע — בעקומה למעלה "בחרתם" עומק 4 כי הוא הכי טוב על ה-<b>test</b>. אבל ברגע שבוחרים מודל לפי ה-test, השתמשתם בו כדי <b>להחליט</b> — והוא כבר לא מדד ניטרלי. עשיתם overfit ל-test עצמו. בדיוק בשביל זה יש קבוצה שלישית.</p>
+    <div class="splitbar">
+      <div class="seg-tr" style="flex:6"><b>Train · 60%</b><span data-i18n="v_tr">ללמוד — מתאמנים עליה</span></div>
+      <div class="seg-va" style="flex:2"><b>Validation · 20%</b><span data-i18n="v_va">לבחור — עומק / מודל</span></div>
+      <div class="seg-te" style="flex:2"><b>Test · 20%</b><span data-i18n="v_te">למדוד — פעם אחת</span></div>
+    </div>
+    <div class="ctrls" style="margin-top:1.2rem;display:flex;gap:.6rem;flex-wrap:wrap">
+      <button class="btn" id="vBtn1" onclick="valPick()" data-i18n="v_b1">בחרו עומק לפי validation</button>
+      <button class="btn secondary" id="vBtn2" onclick="valReveal()" disabled data-i18n="v_b2">חשפו את ה-test (פעם אחת)</button>
+    </div>
+    <div class="callout c-info" id="vOut" style="margin-top:1rem" data-i18n="v_out0">לחצו "בחרו עומק לפי validation" כדי לראות איך עושים את זה נכון.</div>
+    <p class="note" data-i18n="v_note"><b>הכלל:</b> train ללמוד · validation לבחור (מציצים שוב ושוב — מותר) · test נוגעים בו <b>פעם אחת</b> בסוף, למספר ההוגן, אף פעם לא להחלטות. ל-M3 שלכם די ב-train/test; אבל ברגע שאתם מכווננים hyperparameters או בוחרים בין מודלים לפי הציון — תפצלו validation מתוך ה-train, ושמרו את ה-test נקי.</p>
+  </div>
+
+  <!-- ================= LEAKAGE ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb3">הסכנה השקטה</span>
+    <h2 data-i18n="lk_title">זליגת מידע (leakage) — כשגם ה-test משקר</h2>
+    <p class="lead" data-i18n="lk_lead">זליגת מידע = מידע שלא יהיה זמין ברגע החיזוי האמיתי, ובכל זאת מחלחל ל-train — אז המודל "רואה את התשובה" כבר באימון. הציון על ה-test יוצא מעולה במעבדה, ובעולם האמיתי המודל קורס, כי שם המידע הדולף כבר לא קיים. שלא כמו overfitting (שמסגיר את עצמו בפער גדול בין train ל-test), זליגה היא <b>שקטה</b>: גם ה-test נראה מצוין — אז כלום לא נראה שבור.</p>
+
+    <p class="sub-h" data-i18n="lk_when_h">מתי זה קורה? — שלושה מצבים</p>
+    <div class="lkcard" data-i18n="lk_when1"><b>שלב preprocessing שעבר fit על ה-test.</b> scaler / encoder / מילוי-חוסרים שקיבלו fit על כל הטבלה <i>לפני</i> ה-split — אז הממוצע וסטיית-התקן שה-train לומד כבר ספגו את ה-test. זה המקרה מהמפגש: split קודם, fit על train בלבד, transform על test (עטיפה ב-sklearn Pipeline אוכפת את זה לבד).</div>
+    <div class="lkcard" data-i18n="lk_when2"><b>פיצ'ר שנודע רק אחרי התשובה.</b> עמודה שערכה נקבע רק אחרי שהתוצאה כבר ידועה. בחיזוי "האם המבקר ייכנס לחנות?", עמודה כמו "סכום הקנייה" קיימת רק אחרי שכבר נכנס וקנה — וברגע החיזוי היא עוד לא קיימת.</div>
+    <div class="lkcard" data-i18n="lk_when3"><b>אותה דוגמה בשני צדי ה-split.</b> שורות כפולות, או כמה תמונות/מדידות של אותו מקום שנפלו גם ל-train וגם ל-test — אז המודל משנן את הדוגמה הספציפית במקום ללמוד את הדפוס. הפתרון: לחלק לפי קבוצה (מקום / משתמש / סרטון), לא לפי שורה בודדת.</div>
+
+    <p class="sub-h" data-i18n="lk_how_h">איך מזהים? — ארבע בדיקות לפרויקט שלכם</p>
+    <div class="callout c-good lk-how" data-i18n="lk_how"><b>ראשית — מבחן רגע-החיזוי (הכי חשוב):</b> על כל feature שאלו "האם הערך הזה כבר היה בידיי ברגע שהמודל צריך לחזות, לפני שהתשובה נודעה?". אם לא — הוא דולף.<br><b>שנית — מבחן הריח:</b> feature בודד שמקפיץ את ה-test לכמעט-מושלם כמעט תמיד מסתיר את התשובה. תוצאה טובה מדי היא דגל אדום, לא חגיגה.<br><b>שלישית — ביקורת preprocessing:</b> ודאו ש-split קודם, וכל fit רץ על train בלבד.<br><b>רביעית — ביקורת כפילויות:</b> בדקו שאין שורות כפולות או אותה ישות בשני הצדדים.</div>
+
+    <p class="note" data-i18n="lk_demo_intro" style="margin-top:1.3rem">הדגמה — הציון שמשקר: אותו עץ פשוט (עומק 3), עם feature אחד שדולף את התשובה. הדליקו את המתג.</p>
+    <div class="toggle-leak">
+      <div class="switch" id="leakSwitch" onclick="toggleLeak()"><div class="knob"></div></div>
+      <span id="leakLabel" data-i18n="lk_off">בלי feature דולף</span>
+    </div>
+    <div class="bars">
+      <div class="barrow"><span class="name" data-i18n="lk_train">דיוק TRAIN</span><div class="bartrack"><div class="barfill" id="lkTrain" style="background:#22c55e;width:0"></div></div><span class="pct" id="lkTrainP" style="color:#22c55e">–</span></div>
+      <div class="barrow"><span class="name" data-i18n="lk_test">דיוק TEST</span><div class="bartrack"><div class="barfill" id="lkTest" style="background:#3b82f6;width:0"></div></div><span class="pct" id="lkTestP" style="color:#3b82f6">–</span></div>
+    </div>
+    <div class="callout c-warn" style="margin-top:1.1rem" id="lkNote" data-i18n="lk_note_off">כרגע בלי דליפה: ה-test מציאותי. הדליקו את המתג ותראו את ה-test "קופץ" למצוין — אשליה.</div>
+  </div>
+
+  <!-- ================= SINGLE-METRIC TRAP ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb4">המלכודת הרביעית</span>
+    <h2 data-i18n="cmp_title">השוואה על מדד אחד — איך accuracy בוחר את המודל הגרוע</h2>
+    <p class="lead" data-i18n="cmp_lead">M3 מבקש לבחור מנצח — אבל <b>לפי איזה מדד?</b> נתונים לא-מאוזנים: 100 תמונות, רק 10 עם אש. שני מודלים על אותו test. בחרו מדד — וראו מי "מנצח".</p>
+    <div class="seg" id="metricSeg" style="max-width:460px;margin-bottom:1rem">
+      <button class="active" data-k="acc" onclick="pickMetric('acc')">Accuracy</button>
+      <button data-k="rec" onclick="pickMetric('rec')" data-i18n="m_rec">Recall · תופס אש</button>
+      <button data-k="f1" onclick="pickMetric('f1')">F1</button>
+    </div>
+    <div class="cmp2">
+      <div class="modelcard" id="cardA"></div>
+      <div class="modelcard" id="cardB"></div>
+    </div>
+    <div class="callout" id="cmpNote" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- ================= TAKEAWAYS ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb5">לקחת הביתה</span>
+    <h2 data-i18n="tk_title">5 נקודות מפתח</h2>
+    <div class="takeaways">
+      <div class="tk"><div class="n">1</div><div data-i18n="tk1">מודל לוגיסטי מצייר גבול חלק (הטיה גבוהה = פשוט מדי, שונות נמוכה) — יציב, אבל לא יתפוס צורות מורכבות. עץ חותך מלבנים (הטיה נמוכה, שונות גבוהה = גמיש מדי) — גמיש, אבל עלול לעטוף כל רעש. זו ה"מכניקה".</div></div>
+      <div class="tk"><div class="n">2</div><div data-i18n="tk2"><b>הפער בין train ל-test = overfitting.</b> ה-test <i>מגלה</i> אותו, לא מונע. ציון מושלם על train אף פעם לא הצלחה בפני עצמו.</div></div>
+      <div class="tk"><div class="n">3</div><div data-i18n="tk3"><b>גם עם test יש overfitting.</b> מה שמתקן זה פחות מורכבות / רגולריזציה / יותר דאטה — לא עצם המדידה על test.</div></div>
+      <div class="tk"><div class="n">4</div><div data-i18n="tk4"><b>זליגת מידע (leakage) שונה מ-overfitting:</b> שם דווקא ה-test נראה מצוין — וזה שקר. fit ל-preprocessing על train בלבד.</div></div>
+      <div class="tk"><div class="n">5</div><div data-i18n="tk5"><b>השוואה = לא רק accuracy:</b> מדד בודד יכול לבחור את המודל הגרוע (accuracy גבוה על דאטה לא-מאוזן). השוו על אותו test, אבל בחרו מדד שתואם למטרה (recall/F1).</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- seeded RNG (stable visuals) ----------
+let _s=42;
+function srand(x){_s=x>>>0;}
+function rand(){_s|=0;_s=_s+0x6D2B79F5|0;let t=Math.imul(_s^_s>>>15,1|_s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}
+
+// ---------- data: a circle pattern + label noise (linear can't separate; tree can overfit) ----------
+function genData(n,noise){
+  const X=[],y=[];
+  for(let i=0;i<n;i++){
+    const a=rand(),b=rand();
+    const dx=a-0.5,dy=b-0.5,r=Math.sqrt(dx*dx+dy*dy);
+    let lab=r<0.32?1:0;
+    if(rand()<noise)lab=1-lab;
+    X.push([a,b]);y.push(lab);
+  }
+  return{X,y};
+}
+srand(42);
+const train=genData(200,0.14);
+const test =genData(90,0.14);
+const valid=genData(70,0.14);
+
+// ---------- decision tree (Gini, axis-aligned, k features) ----------
+function gini(y){if(!y.length)return 0;let c=0;for(const v of y)if(v===0)c++;const p=c/y.length;return 1-p*p-(1-p)*(1-p);}
+function buildTree(X,y,depth,maxDepth,minLeaf){
+  const n=y.length;let c0=0;for(const v of y)if(v===0)c0++;
+  const node={pred:c0>=n-c0?0:1};
+  if(depth>=maxDepth||n<2*minLeaf||c0===0||c0===n){node.leaf=true;return node;}
+  let best=null;const F=X[0].length;
+  for(let f=0;f<F;f++){
+    const vals=[...new Set(X.map(p=>p[f]))].sort((a,b)=>a-b);
+    for(let i=0;i<vals.length-1;i++){
+      const thr=(vals[i]+vals[i+1])/2;const yl=[],yr=[];
+      for(let j=0;j<n;j++)(X[j][f]<=thr?yl:yr).push(y[j]);
+      if(yl.length<minLeaf||yr.length<minLeaf)continue;
+      const g=(yl.length*gini(yl)+yr.length*gini(yr))/n;
+      if(!best||g<best.g)best={g,f,thr};
+    }
+  }
+  if(!best){node.leaf=true;return node;}
+  node.leaf=false;node.f=best.f;node.thr=best.thr;
+  const Xl=[],yl=[],Xr=[],yr=[];
+  for(let j=0;j<n;j++){if(X[j][best.f]<=best.thr){Xl.push(X[j]);yl.push(y[j]);}else{Xr.push(X[j]);yr.push(y[j]);}}
+  node.left=buildTree(Xl,yl,depth+1,maxDepth,minLeaf);
+  node.right=buildTree(Xr,yr,depth+1,maxDepth,minLeaf);
+  return node;
+}
+function predTree(nd,x){while(!nd.leaf)nd=x[nd.f]<=nd.thr?nd.left:nd.right;return nd.pred;}
+
+// ---------- logistic regression (2D, gradient descent) ----------
+function fitLogistic(X,y){
+  let w=[0,0],b=0;const n=X.length;
+  for(let it=0;it<400;it++){let g0=0,g1=0,gb=0;
+    for(let i=0;i<n;i++){const z=w[0]*X[i][0]+w[1]*X[i][1]+b;const p=1/(1+Math.exp(-z));const e=p-y[i];g0+=e*X[i][0];g1+=e*X[i][1];gb+=e;}
+    w[0]-=0.5*g0/n;w[1]-=0.5*g1/n;b-=0.5*gb/n;}
+  return{w,b};
+}
+function predLog(m,x){return(m.w[0]*x[0]+m.w[1]*x[1]+m.b)>=0?1:0;}
+
+// ---------- random forest ----------
+function fitForest(X,y,nTrees,maxDepth){
+  srand(7);const trees=[];const n=X.length;
+  for(let t=0;t<nTrees;t++){const Xs=[],ys=[];for(let i=0;i<n;i++){const j=Math.floor(rand()*n);Xs.push(X[j]);ys.push(y[j]);}trees.push(buildTree(Xs,ys,0,maxDepth,2));}
+  return trees;
+}
+function predForest(ts,x){let s=0;for(const t of ts)s+=predTree(t,x);return s*2>=ts.length?1:0;}
+
+// ---------- accuracy ----------
+function acc(predFn,X,y){let ok=0;for(let i=0;i<X.length;i++)if(predFn(X[i])===y[i])ok++;return ok/X.length;}
+
+// ---------- canvas helpers ----------
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),W=380;
+const COL=['#818cf8','#22c55e']; // class0, class1 points
+const FILL=['rgba(129,140,248,.16)','rgba(34,197,94,.16)']; // region tint
+function px(v){return v*W;}
+function drawBoundary(predFn){
+  ctx.clearRect(0,0,W,W);
+  const step=5;
+  for(let i=0;i<W;i+=step)for(let j=0;j<W;j+=step){
+    const c=predFn([i/W,j/W]);ctx.fillStyle=FILL[c];ctx.fillRect(i,j,step,step);
+  }
+  // train points = circles
+  for(let i=0;i<train.X.length;i++){const[a,b]=train.X[i];ctx.beginPath();ctx.arc(px(a),px(b),4.2,0,7);ctx.fillStyle=COL[train.y[i]];ctx.fill();}
+  // test points = triangles, red if wrong
+  for(let i=0;i<test.X.length;i++){const[a,b]=test.X[i];const wrong=predFn(test.X[i])!==test.y[i];tri(px(a),px(b),5.5,wrong?'#ef4444':COL[test.y[i]],wrong);}
+}
+function tri(x,y,r,fill,wrong){ctx.beginPath();ctx.moveTo(x,y-r);ctx.lineTo(x-r,y+r);ctx.lineTo(x+r,y+r);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(wrong){ctx.lineWidth=1.6;ctx.strokeStyle='#fff';ctx.stroke();}}
+
+// ---------- playground state ----------
+let model='tree';
+function pickModel(m){model=m;document.querySelectorAll('#modelSeg button').forEach(b=>b.classList.toggle('active',b.dataset.m===m));
+  document.getElementById('depthWrap').style.opacity=(m==='linear')?'.4':'1';
+  document.getElementById('depth').disabled=(m==='linear');
+  renderPG();}
+function onDepth(){document.getElementById('depthVal').textContent=document.getElementById('depth').value;renderPG();}
+function renderPG(){
+  const d=+document.getElementById('depth').value;let pf,tr,te;
+  if(model==='linear'){const m=fitLogistic(train.X,train.y);pf=x=>predLog(m,x);}
+  else if(model==='forest'){const ts=fitForest(train.X,train.y,40,Math.max(4,d));pf=x=>predForest(ts,x);}
+  else{const t=buildTree(train.X,train.y,0,d,1);pf=x=>predTree(t,x);}
+  drawBoundary(pf);
+  tr=acc(pf,train.X,train.y);te=acc(pf,test.X,test.y);const gap=tr-te;
+  document.getElementById('mTrain').textContent=Math.round(tr*100)+'%';
+  document.getElementById('mTest').textContent=Math.round(te*100)+'%';
+  const gapEl=document.getElementById('mGap');gapEl.textContent=(gap>=0?'+':'')+Math.round(gap*100)+'pp';
+  gapEl.style.color=gap>0.05?'#f87171':'#94a3b8'; // red only for a real overfit gap; neutral when test≥train (small-sample noise)
+  setNote(d,gap,te);setMechNote();
+}
+function setNote(d,gap,te){
+  const el=document.getElementById('pgNote');const T=I18N[lang];
+  if(model==='linear'){el.className='callout c-info';el.innerHTML=T.note_linear;return;}
+  if(model==='forest'){el.className='callout c-good';el.innerHTML=T.note_forest;return;}
+  if(d<=2){el.className='callout c-info';el.innerHTML=T.note_under;}
+  else if(gap<0.12){el.className='callout c-good';el.innerHTML=T.note_good;}
+  else{el.className='callout c-warn';el.innerHTML=T.note_over;}
+}
+function setMechNote(){document.getElementById('mechNote').innerHTML=I18N[lang]['mech_'+model];}
+
+// ---------- U-curve ----------
+function drawU(){
+  const c=document.getElementById('ucurve'),x=c.getContext('2d'),Wc=800,Hc=300,pad=46;
+  x.clearRect(0,0,Wc,Hc);
+  const trE=[],teE=[];for(let d=1;d<=14;d++){const t=buildTree(train.X,train.y,0,d,1);const pf=v=>predTree(t,v);trE.push(1-acc(pf,train.X,train.y));teE.push(1-acc(pf,test.X,test.y));}
+  const maxE=Math.max(...trE,...teE,.5);
+  const X=d=>pad+(d-1)/13*(Wc-pad*1.5),Y=e=>pad+ (1-e/maxE)*(Hc-pad*2);
+  // grid + axes
+  x.strokeStyle='rgba(148,163,184,.15)';x.lineWidth=1;
+  for(let g=0;g<=4;g++){const yy=pad+g/4*(Hc-pad*2);x.beginPath();x.moveTo(pad,yy);x.lineTo(Wc-pad*.5,yy);x.stroke();}
+  x.fillStyle='#64748b';x.font='12px Heebo';x.textAlign=lang==='he'?'right':'left';
+  // line drawer
+  function line(arr,col){x.strokeStyle=col;x.lineWidth=3;x.beginPath();arr.forEach((e,i)=>{const xx=X(i+1),yy=Y(e);i?x.lineTo(xx,yy):x.moveTo(xx,yy);});x.stroke();
+    arr.forEach((e,i)=>{x.beginPath();x.arc(X(i+1),Y(e),3.5,0,7);x.fillStyle=col;x.fill();});}
+  line(trE,'#22c55e');line(teE,'#3b82f6');
+  // sweet spot = min test error
+  let bi=0;teE.forEach((e,i)=>{if(e<teE[bi])bi=i;});
+  x.setLineDash([5,5]);x.strokeStyle='#f59e0b';x.beginPath();x.moveTo(X(bi+1),pad);x.lineTo(X(bi+1),Hc-pad);x.stroke();x.setLineDash([]);
+  // labels
+  x.fillStyle='#22c55e';x.textAlign='left';x.fillText('train error',pad+6,pad+14);
+  x.fillStyle='#3b82f6';x.fillText('test error',pad+6,pad+30);
+  x.fillStyle='#f59e0b';x.fillText((lang==='he'?'נקודת המתיקות · עומק ':'sweet spot · depth ')+(bi+1),X(bi+1)+8,Hc-pad-6);
+  x.fillStyle='#64748b';x.textAlign='center';x.fillText(lang==='he'?'מורכבות (עומק העץ) →':'complexity (tree depth) →',Wc/2,Hc-10);
+}
+
+// ---------- leakage ----------
+let leakOn=false;
+function toggleLeak(){leakOn=!leakOn;document.getElementById('leakSwitch').classList.toggle('on',leakOn);renderLeak();}
+function renderLeak(){
+  // base features + optional leaky feature (= label with small noise), tree depth 3
+  function build(withLeak){
+    const Xtr=train.X.map((p,i)=>withLeak?[...p,train.y[i]*0.9+(rand()-0.5)*0.2]:[...p]);
+    const Xte=test.X.map((p,i)=>withLeak?[...p,test.y[i]*0.9+(rand()-0.5)*0.2]:[...p]);
+    srand(99);
+    const t=buildTree(Xtr,train.y,0,3,2);
+    return[acc(v=>predTree(t,v),Xtr,train.y),acc(v=>predTree(t,v),Xte,test.y)];
+  }
+  const[tr,te]=build(leakOn);const T=I18N[lang];
+  document.getElementById('lkTrain').style.width=Math.round(tr*100)+'%';
+  document.getElementById('lkTest').style.width=Math.round(te*100)+'%';
+  document.getElementById('lkTrainP').textContent=Math.round(tr*100)+'%';
+  document.getElementById('lkTestP').textContent=Math.round(te*100)+'%';
+  document.getElementById('leakLabel').textContent=leakOn?T.lk_on:T.lk_off;
+  const note=document.getElementById('lkNote');
+  note.className='callout '+(leakOn?'c-warn':'c-info');
+  note.innerHTML=leakOn?T.lk_note_on:T.lk_note_off;
+}
+
+// ---------- validation: choose on val, reveal test once ----------
+let valChosen=null;
+function valBest(){let bd=1,bv=-1;for(let d=1;d<=14;d++){const t=buildTree(train.X,train.y,0,d,1);const va=acc(x=>predTree(t,x),valid.X,valid.y);if(va>bv){bv=va;bd=d;}}const t=buildTree(train.X,train.y,0,bd,1);return{d:bd,val:Math.round(acc(x=>predTree(t,x),valid.X,valid.y)*100),test:Math.round(acc(x=>predTree(t,x),test.X,test.y)*100)};}
+function valPick(){valChosen=valBest();document.getElementById('vBtn2').disabled=false;const o=document.getElementById('vOut');o.className='callout c-info';o.innerHTML=I18N[lang].v_picked.replace('{d}',valChosen.d).replace(/\{v\}/g,valChosen.val);}
+function valReveal(){if(!valChosen)return;const o=document.getElementById('vOut');o.className='callout c-good';o.innerHTML=I18N[lang].v_revealed.replace('{d}',valChosen.d).replace(/\{v\}/g,valChosen.val).replace('{t}',valChosen.test);document.getElementById('vBtn2').disabled=true;}
+
+// ---------- single-metric trap ----------
+// Imbalanced "fire" test set: 100 images, only 10 with fire.
+const MODELS=[
+  {id:'A',cm:{tp:0,fp:0,fn:10,tn:90},acc:90,rec:0,f1:0},   // always predicts "no fire"
+  {id:'B',cm:{tp:7,fp:8,fn:3,tn:82},acc:89,rec:70,f1:56}    // a real model
+];
+let curMetric='acc';
+function pickMetric(k){curMetric=k;document.querySelectorAll('#metricSeg button').forEach(b=>b.classList.toggle('active',b.dataset.k===k));renderCards();}
+function mRow(label,key,val){return `<div class="mline${key===curMetric?' on':''}"><span>${label}</span><b>${val}%</b></div>`;}
+function renderCards(){
+  const T=I18N[lang];const wId=MODELS[0][curMetric]>MODELS[1][curMetric]?'A':'B';
+  [['A','cardA',T.cmp_a],['B','cardB',T.cmp_b]].forEach(([id,el,desc])=>{
+    const m=MODELS.find(x=>x.id===id),c=m.cm;
+    document.getElementById(el).innerHTML=
+      `<div class="win-badge ${id===wId?'show':''}">${T.cmp_winner}</div>`+
+      `<h3>${T.cmp_model} ${id}</h3><div class="sub">${desc}</div>`+
+      `<div class="cm"><div class="hd"></div><div class="hd">${T.cm_pf}</div><div class="hd">${T.cm_pn}</div>`+
+      `<div class="hd">${T.cm_af}</div><div class="tp">TP ${c.tp}</div><div class="fn">FN ${c.fn}</div>`+
+      `<div class="hd">${T.cm_an}</div><div class="fp">FP ${c.fp}</div><div class="tn">TN ${c.tn}</div></div>`+
+      mRow('Accuracy','acc',m.acc)+mRow('Recall','rec',m.rec)+mRow('F1','f1',m.f1);
+  });
+  const note=document.getElementById('cmpNote');note.className='callout '+(curMetric==='acc'?'c-warn':'c-good');
+  note.innerHTML=T['cmp_note_'+curMetric];
+}
+
+// ---------- i18n ----------
+const I18N={
+ he:{nav_back:'‹ חזרה למדריכים',
+  note_linear:'<b>מודל לוגיסטי (מסווג לינארי):</b> גבול חלק, קו אחד החלטה — לא ה-LinearRegression מהשיעור. לא מצליח לעטוף את העיגול במרכז — זה <b>underfitting</b>. שימו לב: הפער train↔test קטן (ואם ה-test יוצא קצת מעל ה-train — זה רעש של מדגם קטן, לא "הכללה טובה").',
+  note_forest:'<b>Random Forest:</b> הרבה עצים מצביעים יחד. גבול גמיש אבל יציב — מקבל את הדיוק של עץ עמוק בלי רוב ה-overfitting. ברירת מחדל בטוחה.',
+  note_under:'<b>עומק נמוך = underfitting.</b> הגבול גס מדי. train ו-test שניהם לא מרשימים — המודל פשוט מדי.',
+  note_good:'<b>אזור מתוק.</b> הגבול מעוגל סביב הצורה האמיתית, הפער קטן. כאן test הכי גבוה.',
+  note_over:'<b>אוברפיטינג.</b> הגבול "מתפתל" כדי לעטוף כל נקודת train (כולל רעש). train מטפס לכיוון 100% אבל test <i>יורד</i> — ויש לכם test, והוא עדיין חושף את זה. הפער האדום הוא ה-overfitting.',
+  mech_tree:'מכניקה — Tree: שואל שאלה כן/לא על feature אחד בכל פעם ("האם x ≤ סף?"), וחותך מלבנים. גמיש מאוד, ולכן עלול לעטוף רעש.',
+  mech_linear:'מכניקה — לוגיסטי: מסווג לינארי שמחפש משטח הפרדה אחד (משקל לכל feature) — קו החלטה, לא ה-LinearRegression מהשיעור. חלק ויציב, אבל לא יתפוס צורה לא-לינארית כמו עיגול.',
+  mech_forest:'מכניקה — Forest: עשרות עצים, כל אחד על תת-מדגם אקראי; מצביעים. ממוצע ההצבעות מחליק את הרעש של עץ בודד.',
+  lk_off:'בלי feature דולף',lk_on:'עם feature דולף ⚠️',
+  lk_note_off:'כרגע בלי דליפה: ה-test מציאותי. הדליקו את המתג ותראו את ה-test "קופץ" למצוין — אשליה.',
+  lk_note_on:'<b>שימו לב:</b> גם ה-test קפץ לכמעט-מושלם. אין פער מחשיד — ובכל זאת זה <b>שקר</b>. המודל קורא feature שמכיל את התשובה, שלא יהיה קיים בזמן אמת. <b>אותו דבר קורה אם ה-scaler/encoder שלכם עושה fit על כל הדאטה</b> (כולל test) — לכן fit על train בלבד. ככה leakage מתחפש להצלחה.',
+  cmp_a:'מנבא תמיד "אין אש" (baseline)',cmp_b:'מודל אמיתי שלמד',cmp_winner:'מנצח',cmp_model:'מודל',
+  cm_pf:'חזה: אש',cm_pn:'חזה: אין',cm_af:'יש אש',cm_an:'אין אש',
+  cmp_note_acc:'⚠️ לפי <b>accuracy</b> ניצח מודל A — 90%. אבל A מנבא "אין אש" <b>תמיד</b> ותופס <b>אפס</b> שריפות (recall 0). מדד בודד בחר לכם את המודל חסר-התועלת — ככה accuracy גבוה על דאטה לא-מאוזן מסתיר כישלון מוחלט.',
+  cmp_note_rec:'✅ לפי <b>recall</b> ניצח מודל B — תופס 70% מהשריפות. כשהמטרה היא לא לפספס (אש, הונאה, מחלה) — זה המדד הנכון, גם אם ה-accuracy שלו נמוך ב-1%.',
+  cmp_note_f1:'✅ לפי <b>F1</b> (איזון precision ו-recall) ניצח B. F1=0 חושף ש-A חסר-תועלת למרות accuracy 90%. המסקנה: בחרו מדד שתואם למטרה, אל תשוו על accuracy בלבד.',
+  v_picked:'ה-validation בחר <b>עומק {d}</b> (הכי טוב על val: {v}%). עכשיו הכלל: לא נוגעים ב-test כדי לבחור. לחצו לחשוף את ה-test — פעם אחת.',
+  v_revealed:'בעומק {d}: validation {v}% · <b>test {t}%</b> — זה המספר ההוגן שמדווחים. שימו לב ש-test ({t}%) מעט נמוך מ-val ({v}%): ל-val כבר "התאמתם" כשבחרתם לפיו, אז הוא אופטימי. ה-test, שנגעתם בו פעם אחת, לא מנופח.'},
+ en:{nav_back:'‹ back to guides',
+  note_linear:'<b>Logistic model (a linear classifier):</b> one smooth decision boundary — not the LinearRegression line from the lecture. It cannot wrap the central circle — that is <b>underfitting</b>. The train↔test gap is small (and if test comes out a bit above train, that is small-sample noise, not "good generalization").',
+  note_forest:'<b>Random Forest:</b> many trees vote together. Flexible yet stable — you get a deep tree\'s accuracy without most of the overfitting. A safe default.',
+  note_under:'<b>Low depth = underfitting.</b> Boundary too coarse. Train and test both unimpressive — the model is too simple.',
+  note_good:'<b>Sweet spot.</b> The boundary rounds the true shape, the gap is small. Test is highest here.',
+  note_over:'<b>Overfitting.</b> The boundary contorts to wrap every train point (noise included). Train climbs toward 100% but test <i>drops</i> — you HAVE a test set and it still reveals this. The red gap IS the overfitting.',
+  mech_tree:'Mechanic — Tree: asks one yes/no question on a single feature at a time ("is x ≤ threshold?"), carving rectangles. Very flexible, so it can wrap noise.',
+  mech_linear:'Mechanic — Logistic: a linear classifier finding one separating surface (a weight per feature) — a decision boundary, not the LinearRegression line from the lecture. Smooth and stable, but won\'t capture a non-linear shape like a circle.',
+  mech_forest:'Mechanic — Forest: dozens of trees, each on a random subsample; they vote. Averaging smooths a single tree\'s noise.',
+  lk_off:'no leaky feature',lk_on:'with leaky feature ⚠️',
+  lk_note_off:'No leakage now: test is realistic. Flip the switch and watch test "jump" to excellent — an illusion.',
+  lk_note_on:'<b>Notice:</b> test also jumped to near-perfect. No suspicious gap — yet it is a <b>lie</b>. The model reads a feature that contains the answer, which won\'t exist at prediction time. <b>The same happens if your scaler/encoder is fit on all the data</b> (test included) — so fit on train only. That\'s leakage masquerading as success.',
+  cmp_a:'always predicts "no fire" (baseline)',cmp_b:'a real, trained model',cmp_winner:'winner',cmp_model:'Model',
+  cm_pf:'pred: fire',cm_pn:'pred: none',cm_af:'is fire',cm_an:'no fire',
+  cmp_note_acc:'⚠️ By <b>accuracy</b>, Model A wins — 90%. But A predicts "no fire" <b>always</b> and catches <b>zero</b> fires (recall 0). A single metric just picked the useless model — that\'s how high accuracy on imbalanced data hides total failure.',
+  cmp_note_rec:'✅ By <b>recall</b>, Model B wins — it catches 70% of fires. When the goal is not to miss (fire, fraud, disease) this is the right metric, even though its accuracy is 1% lower.',
+  cmp_note_f1:'✅ By <b>F1</b> (balancing precision and recall), B wins. F1=0 exposes A as useless despite 90% accuracy. Takeaway: pick a metric that matches the goal — don\'t compare on accuracy alone.',
+  v_picked:'Validation chose <b>depth {d}</b> (best on val: {v}%). Now the rule: don\'t touch test to choose. Click to reveal the test — once.',
+  v_revealed:'At depth {d}: validation {v}% · <b>test {t}%</b> — that\'s the honest number you report. Note test ({t}%) sits a bit below val ({v}%): you already "fit" to val by choosing on it, so val is optimistic. The test, touched once, isn\'t inflated.'}
+};
+
+let lang='he';
+function setLang(l){
+  lang=l;document.documentElement.lang=l;document.documentElement.dir=l==='he'?'rtl':'ltr';
+  document.getElementById('bt-he').classList.toggle('active',l==='he');
+  document.getElementById('bt-en').classList.toggle('active',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(EN_STATIC[k]!==undefined)el.innerHTML=(l==='en'?EN_STATIC[k]:HE_STATIC[k]);});
+  renderPG();drawU();renderLeak();renderCards();
+}
+// capture HE static text on load, provide EN
+const HE_STATIC={},EN_STATIC={
+ title:'How models learn — and how they fail',
+ subtitle:'You\'ve already seen a baseline and a first model. Now the real question: why does one model come out smooth and another "memorizes", when does the test score lie to you, and how do you actually pick a winner. All live — real models training right here in the browser.',
+ eb1:'Playground',pg_title:'Drag the complexity — and watch overfitting happen',
+ pg_lead:'Exact same data (circles = train, triangles = test). Pick a model and play with complexity. Watch the triangles turning <b style="color:#f87171">red</b> — those are test points the model gets wrong.',
+ lg_a:'class A · train',lg_b:'class B · train',lg_test:'test',lg_err:'test wrong',
+ m_tree:'Tree',m_linear:'Logistic',m_forest:'Forest',depth_lbl:'complexity (tree depth)',
+ k_train:'TRAIN acc',k_test:'TEST acc',k_gap:'the gap',
+ eb2:'The core',u_title:'The gap between train and test',
+ u_lead:'Here\'s the same tree, retrained at every depth 1→14: the green line (train) only falls, the blue (test) falls then <b>rises</b>. The gap between them = overfitting. The lowest point of blue = the right complexity.',
+ u_note:'<b>So what actually fixes overfitting?</b> Not the test set. Rather: less complexity (cap the depth), regularization, or more data. The test set only tells you <i>that</i> there\'s a problem and <i>where</i> the sweet spot is.',
+ ebv:'Three sets',v_title:'train / validation / test — and why two isn\'t enough',
+ v_lead:'Wait — in the curve above you "picked" depth 4 because it scored best on <b>test</b>. But the moment you choose a model by the test set, you used it to <b>decide</b> — it\'s no longer a neutral measure. You overfit to the test itself. That\'s exactly why there\'s a third set.',
+ v_tr:'learn — trained on it',v_va:'choose — depth / model',v_te:'measure — once',
+ v_b1:'Choose depth by validation',v_b2:'Reveal the test (once)',
+ v_out0:'Click "Choose depth by validation" to see how it\'s done right.',
+ v_note:'<b>The rule:</b> train to learn · validation to choose (peek repeatedly — allowed) · test touched <b>once</b> at the end for the honest number, never for decisions. For your M3, train/test is enough; but the moment you tune hyperparameters or pick between models by the score, split a validation set out of train and keep the test clean.',
+ eb3:'The silent danger',lk_title:'Data leakage — when even the test set lies',
+ lk_lead:'Data leakage = information that won\'t be available at real prediction time, yet sneaks into training — so the model effectively "sees the answer" during training. The test score looks excellent in the lab, but in the real world the model collapses, because there the leaking signal no longer exists. Unlike overfitting (which betrays itself with a big train-vs-test gap), leakage is <b>silent</b>: the test looks great too, so nothing appears broken.',
+ lk_when_h:'When does it happen? — three situations',
+ lk_when1:'<b>A preprocessing step fit on the test set.</b> A scaler / encoder / imputer fit on the whole table <i>before</i> the split — so the mean and std the train learns from already absorbed the test. This is the case from the session: split first, fit on train only, transform on test (an sklearn Pipeline enforces it for you).',
+ lk_when2:'<b>A feature known only after the answer.</b> A column whose value is set only after the outcome is known. Predicting "will the visitor enter the store?", a column like "purchase amount" exists only after they entered and bought — at prediction time it does not exist yet.',
+ lk_when3:'<b>The same example on both sides of the split.</b> Duplicate rows, or several photos/measurements of the same place that fell into both train and test — so the model memorizes the specific example instead of learning the pattern. Fix: split by group (place / user / clip), not by single row.',
+ lk_how_h:'How do you detect it? — four checks for your project',
+ lk_how:'<b>First — the prediction-moment test (most important):</b> for every feature ask "did I already have this value at the moment the model needs to predict, before the answer was known?". If not — it leaks.<br><b>Second — the smell test:</b> a single feature that pushes test to near-perfect almost always hides the answer. A too-good result is a red flag, not a celebration.<br><b>Third — the preprocessing audit:</b> make sure the split comes first and every fit runs on train only.<br><b>Fourth — the duplicate audit:</b> check there are no duplicate rows or the same entity on both sides.',
+ lk_demo_intro:'Demo — the score that lies: the same simple tree (depth 3), with one feature that leaks the answer. Flip the switch.',
+ lk_train:'TRAIN acc',lk_test:'TEST acc',
+ eb4:'The fourth trap',cmp_title:'Comparing on a single metric — how accuracy crowns the worst model',
+ cmp_lead:'M3 asks you to pick a winner — but <b>by which metric?</b> Imbalanced data: 100 images, only 10 with fire. Two models on the same test. Pick a metric — and see who "wins".',
+ m_rec:'Recall · catches fire',
+ eb5:'Takeaways',tk_title:'5 key points',
+ tk1:'A linear (logistic) classifier draws a smooth boundary (high bias = too simple, low variance) — stable, but won\'t capture complex shapes. A tree cuts rectangles (low bias, high variance = too flexible) — flexible, but can wrap any noise. That\'s the "mechanic".',
+ tk2:'<b>Overfitting = the gap between train and test.</b> The test set <i>reveals</i> it, doesn\'t prevent it. A perfect train score is never success by itself.',
+ tk3:'<b>There\'s still overfitting even with a test set.</b> What fixes it is less complexity / regularization / more data — not the act of measuring on test.',
+ tk4:'<b>Leakage differs from overfitting:</b> there the test actually looks great — and it\'s a lie. Fit preprocessing on train only.',
+ tk5:'<b>Comparison ≠ accuracy alone:</b> a single metric can crown the worst model (high accuracy on imbalanced data). Compare on the same test set, but pick a metric matching the goal (recall/F1).'
+};
+document.querySelectorAll('[data-i18n]').forEach(el=>{HE_STATIC[el.getAttribute('data-i18n')]=el.innerHTML;});
+
+// ---------- init ----------
+pickModel('tree');drawU();renderLeak();renderCards();
+</script>
+</body>
+</html>

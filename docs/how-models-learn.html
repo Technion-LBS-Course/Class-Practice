@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How Models Learn — Step by Step</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Heebo',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.7;overflow-x:hidden}
+.top-nav{position:fixed;top:0;left:0;right:0;height:54px;background:rgba(15,23,42,.85);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,.15);display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;z-index:100}
+.top-nav a{color:#94a3b8;text-decoration:none;font-size:.9rem}
+.lang-toggle button{background:transparent;border:1px solid rgba(148,163,184,.3);color:#94a3b8;padding:.3rem .7rem;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600}
+.lang-toggle button.active{background:#6366f1;color:#fff;border-color:#6366f1}
+.wrap{max-width:880px;margin:0 auto;padding:5rem 1.2rem 4rem}
+.hero{text-align:center;padding:1rem 0 2rem}
+.hero h1{font-size:2.2rem;font-weight:800;background:linear-gradient(90deg,#6366f1,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.3}
+.hero p{color:#94a3b8;font-size:1.05rem;max-width:640px;margin:1rem auto 0}
+.section{background:#1a1a2e;border:1px solid rgba(148,163,184,.15);border-radius:18px;padding:1.8rem;margin:1.4rem 0}
+.section h2{font-size:1.5rem;font-weight:700;margin-bottom:.4rem;color:#f1f5f9}
+.section .lead{color:#94a3b8;margin-bottom:1.3rem}
+.eyebrow{display:inline-block;font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#818cf8;background:rgba(99,102,241,.12);padding:.25rem .7rem;border-radius:999px;margin-bottom:.7rem}
+canvas,svg{display:block;background:#0b1120;border-radius:12px;border:1px solid rgba(148,163,184,.12)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;align-items:start}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.ctrls{display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0 .6rem}
+.btn{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:.6rem 1.1rem;border-radius:9px;font-family:inherit;font-weight:700;cursor:pointer;font-size:.92rem}
+.btn.sec{background:#0b1120;border:1px solid rgba(148,163,184,.25);color:#cbd5e1}
+.btn:disabled{opacity:.4;cursor:default}
+.readout{display:flex;gap:1.4rem;flex-wrap:wrap;font-size:.9rem;color:#cbd5e1;margin:.4rem 0}
+.readout b{color:#818cf8}
+.caption{border-radius:11px;padding:.85rem 1rem;font-size:.94rem;border:1px solid;min-height:3.2rem}
+.c-info{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.3);color:#c4b5fd}
+.c-good{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:#86efac}
+.legend{display:flex;gap:1.1rem;flex-wrap:wrap;font-size:.82rem;color:#94a3b8;margin-top:.7rem}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.bridge{background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(244,114,182,.1));border:1px solid rgba(148,163,184,.2);border-radius:16px;padding:1.5rem;text-align:center;margin:1.4rem 0}
+.bridge a{color:#f472b6;font-weight:700;text-decoration:none}
+.tk{display:flex;gap:.9rem;align-items:flex-start;background:#0b1120;border:1px solid rgba(148,163,184,.12);border-radius:12px;padding:1rem;margin-bottom:.8rem}
+.tk .n{flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#c084fc);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;color:#fff}
+.note{font-size:.84rem;color:#64748b;margin-top:.7rem}
+b.en{color:#a5b4fc;font-weight:600}
+</style>
+</head>
+<body>
+<div class="top-nav">
+  <a href="../index.html" data-i18n="nav_back">‹ חזרה למדריכים</a>
+  <div class="lang-toggle">
+    <button id="bt-he" class="active" onclick="setLang('he')">HE</button>
+    <button id="bt-en" onclick="setLang('en')">EN</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h1 data-i18n="title">איך מודלים לומדים — צעד אחר צעד</h1>
+    <p data-i18n="subtitle">לפני שמדברים על overfitting ו-train/test — מה זה בכלל "ללמוד"? כאן רואים את זה קורה: קו אקראי שזז עם כל דוגמה (רגרסיה לוגיסטית), ועץ שנבנה פיצול אחרי פיצול. בלי קסמים — אלה האלגוריתמים האמיתיים, איטיים מספיק כדי לראות.</p>
+  </div>
+
+  <!-- ============ LOGISTIC: the line that moves ============ -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb1">מודל 1 · לוגיסטי</span>
+    <h2 data-i18n="lr_title">הקו שלומד — Logistic Regression</h2>
+    <p class="lead" data-i18n="lr_lead">מתחילים מ<b>קו אקראי</b> (הניחוש ההתחלתי). כל לחיצה מזינה זוג דוגמאות (אחת מכל מחלקה) — הנקודות "נצבעות", והקו <b>מתעדכן</b> כדי להתאים לכל מה שהוזן. שימו לב שהדיוק עולה <b>בהדרגה</b>, ולא קופץ ל-100% — כי המחלקות חופפות. זה כל ה"אימון".</p>
+    <div class="grid2">
+      <div>
+        <canvas id="lrCanvas" width="380" height="380"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:#818cf8"></span> <span data-i18n="lr_c0">מחלקה A</span></span>
+          <span><span class="dot" style="background:#22c55e"></span> <span data-i18n="lr_c1">מחלקה B</span></span>
+          <span><span class="dot" style="background:#475569"></span> <span data-i18n="lr_un">טרם הוזנה</span></span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrls">
+          <button class="btn" id="lrNext" onclick="lrStep()" data-i18n="lr_next">זוג הבא</button>
+          <button class="btn sec" id="lrAuto" onclick="lrToggle()" data-i18n="lr_auto">▶ הרץ</button>
+          <button class="btn sec" onclick="lrReset()" data-i18n="lr_reset">↻ קו אקראי חדש</button>
+        </div>
+        <div class="readout">
+          <span><span data-i18n="lr_fed">הוזנו</span>&nbsp;<b id="lrFed">0</b>/<b id="lrTot">0</b></span>
+          <span><span data-i18n="lr_acc">דיוק</span>&nbsp;<b id="lrAcc">–</b></span>
+        </div>
+        <div class="caption c-info" id="lrCap"></div>
+        <p class="note" data-i18n="lr_note"><b>המכניקה:</b> לכל נקודה המודל מסתכל כמה הוא טעה, ומזיז את משקלי הקו בכיוון שמקטין את הטעות (gradient descent). נקודה רחוקה וקשה — מזיזה יותר. זה הכול: סכימה של דחיפות קטנות.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TREE: the boundary that splits ============ -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb2">מודל 2 · עץ</span>
+    <h2 data-i18n="tr_title">העץ שנבנה — Decision Tree</h2>
+    <p class="lead" data-i18n="tr_lead">עץ לא מזיז קו. הוא שואל שאלה אחת בכל פעם: "<b>איזה פיצול, על איזה feature, מפריד הכי טוב?</b>". כל פיצול חותך את המרחב לשניים, ומוסיף צומת לעץ. כך הוא בונה גבול-מדרגות. לחצו פיצול-אחרי-פיצול וראו את שני הצדדים נבנים יחד.</p>
+    <div class="grid2">
+      <div>
+        <canvas id="trCanvas" width="380" height="380"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:#818cf8"></span> A</span>
+          <span><span class="dot" style="background:#22c55e"></span> B</span>
+          <span data-i18n="tr_cut">— קו פיצול</span>
+        </div>
+      </div>
+      <div>
+        <svg id="trSvg" width="380" height="300" viewBox="0 0 380 300"></svg>
+      </div>
+    </div>
+    <div class="ctrls" style="margin-top:1rem">
+      <button class="btn" id="trNext" onclick="trStep()" data-i18n="tr_next">פיצול הבא</button>
+      <button class="btn sec" id="trAuto" onclick="trBuild()" data-i18n="tr_auto">בנייה אוטומטית</button>
+      <button class="btn sec" onclick="trReset()" data-i18n="tr_reset">↻ אתחול</button>
+    </div>
+    <div class="caption c-info" id="trCap"></div>
+    <p class="note" data-i18n="tr_note"><b>"הפיצול הטוב ביותר":</b> המודל בודק כל סף אפשרי בכל feature, ובוחר את זה שאחריו כל צד הכי "טהור" (רוב גדול למחלקה אחת — מדד Gini). חוזר על זה בכל ענף עד שנקי. עומק רב = גבול מורכב יותר (וקל יותר ל-overfit).</p>
+  </div>
+
+  <!-- ============ FOREST: many trees vote ============ -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb_f">מודל 3 · יער</span>
+    <h2 data-i18n="fr_title">היער שמצביע — Random Forest</h2>
+    <p class="lead" data-i18n="fr_lead">עץ <b>בודד</b> ועמוק על דאטה רועש יוצא <b>משונן</b> — הגבול שלו מתפתל סביב כל נקודה, והוא תלוי מאוד באילו דוגמאות במקרה ראה. הפתרון: לאמן <b>הרבה עצים</b>, כל אחד על תת-מדגם אקראי, ולתת להם <b>להצביע</b>. הוסיפו עצים אחד-אחד — הגבול הדק (העץ האחרון) רועש, אבל ההצבעה המלאה (המלא) מתחלקת ומתייצבת.</p>
+    <div class="grid2">
+      <div>
+        <canvas id="frCanvas" width="380" height="380"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:#818cf8"></span> A</span>
+          <span><span class="dot" style="background:#22c55e"></span> B</span>
+          <span><span class="dot" style="background:#f472b6"></span> <span data-i18n="fr_single">גבול העץ האחרון</span></span>
+          <span data-i18n="fr_vote">אזורים מלאים = ההצבעה</span>
+        </div>
+      </div>
+      <div>
+        <div class="ctrls">
+          <button class="btn" onclick="frAdd(1)" data-i18n="fr_add1">+ עץ</button>
+          <button class="btn sec" onclick="frAdd(10)" data-i18n="fr_add10">+ 10 עצים</button>
+          <button class="btn sec" onclick="frReset()" data-i18n="fr_reset">↻ אתחול</button>
+        </div>
+        <div class="readout">
+          <span data-i18n="fr_n">עצים</span>&nbsp;<b id="frN">0</b>
+          <span><span data-i18n="fr_st">עץ בודד (test)</span>&nbsp;<b id="frSingle">–</b></span>
+          <span><span data-i18n="fr_ft">יער (test)</span>&nbsp;<b id="frForest">–</b></span>
+        </div>
+        <div class="caption c-info" id="frCap"></div>
+        <p class="note" data-i18n="fr_note"><b>למה זה עובד:</b> כל עץ טועה במקום אחר (רעש אקראי שונה). כשמצביעים, הטעויות מתקזזות זו את זו והאות המשותף נשאר. "חוכמת ההמון" — הרבה מודלים בינוניים-ושונים יחד מנצחים מודל בודד מבריק-ושביר.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ bridge ============ -->
+  <div class="bridge">
+    <p data-i18n="bridge">ראיתם איך הם <b>לומדים</b>. השאלה הבאה: מתי הלמידה הזו <b>משתבשת</b> — מתי מודל "משנן" במקום להבין?</p>
+    <p style="margin-top:.6rem"><a href="overfitting-explorer.html" data-i18n="bridge_link">המשך ל-Overfitting, Leakage & Model Comparison ›</a></p>
+  </div>
+
+  <!-- ============ takeaways ============ -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="eb3">לקחת הביתה</span>
+    <h2 data-i18n="tk_title">3 נקודות</h2>
+    <div class="tk"><div class="n">1</div><div data-i18n="tk1">רגרסיה לוגיסטית לומדת <b>קו אחד חלק</b>, בכך שמזיזה משקלים מעט עם כל דוגמה. פשוט ויציב — אבל מוגבל לגבול לינארי.</div></div>
+    <div class="tk"><div class="n">2</div><div data-i18n="tk2">עץ החלטה לומד <b>שרשרת שאלות כן/לא</b>, כל אחת הפיצול הכי מפריד. בונה גבול-מדרגות גמיש — אבל גמיש מדי עלול לשנן.</div></div>
+    <div class="tk"><div class="n">3</div><div data-i18n="tk3"><b>"אימון" = לכוונן את המודל לדאטה.</b> ההבדל בין המודלים הוא <b>איך</b> הם מתכווננים — והוא קובע איזה גבול הם יכולים לצייר.</div></div>
+  </div>
+</div>
+
+<script>
+// -------- seeded RNG --------
+let _s=7;function srand(x){_s=x>>>0;}
+function rand(){_s|=0;_s=_s+0x6D2B79F5|0;let t=Math.imul(_s^_s>>>15,1|_s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}
+function gauss(m,s){let u1=rand(),u2=rand();if(u1<1e-6)u1=1e-6;const z=Math.sqrt(-2*Math.log(u1))*Math.cos(6.2831853*u2);return Math.max(.05,Math.min(.95,m+s*z));}
+const W=380;const px=v=>v*W;
+
+/* ================= LOGISTIC ================= */
+const lrC=document.getElementById('lrCanvas'),lrX=lrC.getContext('2d');
+let lrData,lrW,lrB,lrAord,lrBord,lrPair,lrRevealed,lrLast,lrTimer=null;
+function lrGen(){
+  // OVERLAPPING blobs (no perfect separator) so learning is gradual and tops out <100%
+  srand(13);const X=[],y=[];
+  for(let i=0;i<16;i++){X.push([gauss(.38,.15),gauss(.44,.15)]);y.push(0);}
+  for(let i=0;i<16;i++){X.push([gauss(.62,.15),gauss(.56,.15)]);y.push(1);}
+  return{X,y};
+}
+function lrReset(){
+  if(lrTimer){clearInterval(lrTimer);lrTimer=null;document.getElementById('lrAuto').textContent=I18N[lang].lr_auto;}
+  lrData=lrGen();
+  lrW=[(rand()-.5)*0.4,(rand()-.5)*0.4];lrB=(rand()-.5)*0.1; // small random initial line
+  // shuffle each class; each step reveals one balanced PAIR (1 A + 1 B) → smooth, monotone learning
+  lrAord=[];lrBord=[];for(let i=0;i<lrData.X.length;i++)(lrData.y[i]===0?lrAord:lrBord).push(i);
+  for(let i=lrAord.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[lrAord[i],lrAord[j]]=[lrAord[j],lrAord[i]];}
+  for(let i=lrBord.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[lrBord[i],lrBord[j]]=[lrBord[j],lrBord[i]];}
+  lrPair=0;lrRevealed=[];lrLast=[];lrData.fed=new Array(lrData.X.length).fill(false);
+  document.getElementById('lrTot').textContent=lrData.X.length;
+  lrDraw();lrCap(I18N[lang].lr_cap_start);lrStats();
+}
+function lrLineEndpoints(){
+  // w0*x + w1*y + b = 0 ; find 2 border intersections
+  const pts=[],w0=lrW[0],w1=lrW[1],b=lrB;
+  const add=(x,y)=>{if(x>=-1e-6&&x<=1+1e-6&&y>=-1e-6&&y<=1+1e-6)pts.push([x,y]);};
+  if(Math.abs(w1)>1e-6){add(0,-b/w1);add(1,-(b+w0)/w1);}
+  if(Math.abs(w0)>1e-6){add(-b/w0,0);add(-(b+w1)/w0,1);}
+  return pts.slice(0,2);
+}
+function lrDraw(){
+  lrX.clearRect(0,0,W,W);
+  // shaded sides
+  const img=lrX.getImageData(0,0,W,W);
+  // light tint by current prediction
+  for(let i=0;i<W;i+=6)for(let j=0;j<W;j+=6){
+    const z=lrW[0]*(i/W)+lrW[1]*(j/W)+lrB;lrX.fillStyle=z>=0?'rgba(34,197,94,.07)':'rgba(129,140,248,.07)';lrX.fillRect(i,j,6,6);
+  }
+  // line
+  const ep=lrLineEndpoints();
+  if(ep.length===2){lrX.strokeStyle='#f472b6';lrX.lineWidth=3;lrX.beginPath();lrX.moveTo(px(ep[0][0]),px(ep[0][1]));lrX.lineTo(px(ep[1][0]),px(ep[1][1]));lrX.stroke();}
+  // points
+  for(let i=0;i<lrData.X.length;i++){
+    const[a,b]=lrData.X[i];const fed=lrData.fed[i];
+    lrX.beginPath();lrX.arc(px(a),px(b),5,0,7);
+    lrX.fillStyle=fed?(lrData.y[i]?'#22c55e':'#818cf8'):'#475569';lrX.fill();
+  }
+  // highlight the pair just revealed (the two examples that moved the line)
+  for(const k of (lrLast||[])){const[a,b]=lrData.X[k];lrX.beginPath();lrX.arc(px(a),px(b),9,0,7);lrX.strokeStyle='#fbbf24';lrX.lineWidth=2.5;lrX.stroke();}
+}
+function lrStats(){
+  let ok=0;for(let i=0;i<lrData.X.length;i++){const z=lrW[0]*lrData.X[i][0]+lrW[1]*lrData.X[i][1]+lrB;if((z>=0?1:0)===lrData.y[i])ok++;}
+  document.getElementById('lrAcc').textContent=Math.round(ok/lrData.X.length*100)+'%';
+  document.getElementById('lrFed').textContent=lrPair*2;
+}
+function lrCap(t){document.getElementById('lrCap').innerHTML=t;}
+// batch gradient steps over the points revealed so far (stable, monotone)
+function lrFit(steps,LR){const idx=lrRevealed;if(!idx.length)return;for(let s=0;s<steps;s++){let g0=0,g1=0,gb=0;for(const k of idx){const x=lrData.X[k],yv=lrData.y[k];const z=lrW[0]*x[0]+lrW[1]*x[1]+lrB;const p=1/(1+Math.exp(-z));const e=p-yv;g0+=e*x[0];g1+=e*x[1];gb+=e;}const n=idx.length;lrW[0]-=LR*g0/n;lrW[1]-=LR*g1/n;lrB-=LR*gb/n;}}
+function lrStep(){
+  const total=Math.min(lrAord.length,lrBord.length);
+  if(lrPair>=total){if(lrTimer)lrToggle();lrCap(I18N[lang].lr_cap_done);return;}
+  const ka=lrAord[lrPair],kb=lrBord[lrPair];
+  lrData.fed[ka]=true;lrData.fed[kb]=true;lrRevealed.push(ka,kb);lrLast=[ka,kb];lrPair++;
+  lrFit(15,0.7); // re-fit the line to all examples seen so far (enough steps to settle, ends at its peak)
+  lrDraw();lrStats();
+  const acc=document.getElementById('lrAcc').textContent;
+  lrCap(lrPair>=total?I18N[lang].lr_cap_done:I18N[lang].lr_cap_step.replace('{a}',acc));
+}
+function lrToggle(){lrTimer?(clearInterval(lrTimer),lrTimer=null):(lrTimer=setInterval(lrStep,420));document.getElementById('lrAuto').textContent=lrTimer?I18N[lang].lr_stop:I18N[lang].lr_auto;}
+
+/* ================= DECISION TREE ================= */
+const trC=document.getElementById('trCanvas'),trX=trC.getContext('2d'),trSvg=document.getElementById('trSvg');
+let trData,trNodes,trReveal,trShown,trTimer=null;
+function trGen(){
+  srand(29);const X=[],y=[];
+  // "corner": class B iff x>.55 AND y>.55 — clean sequential splits, beats a single line
+  for(let i=0;i<80;i++){const a=rand(),b=rand();X.push([a,b]);y.push((a>.55&&b>.55)?1:0);}
+  return{X,y};
+}
+function giniOf(idx,y){if(!idx.length)return 0;let c=0;for(const i of idx)if(y[i]===0)c++;const p=c/idx.length;return 1-p*p-(1-p)*(1-p);}
+function bestSplit(idx,X,y){
+  let best=null;const cur=giniOf(idx,y);
+  for(let f=0;f<2;f++){
+    const vals=[...new Set(idx.map(i=>X[i][f]))].sort((a,b)=>a-b);
+    for(let s=0;s<vals.length-1;s++){const thr=(vals[s]+vals[s+1])/2;const L=[],R=[];
+      for(const i of idx)(X[i][f]<=thr?L:R).push(i);
+      if(L.length<4||R.length<4)continue;
+      const g=(L.length*giniOf(L,y)+R.length*giniOf(R,y))/idx.length;
+      if(!best||g<best.g)best={g,f,thr,L,R,gain:cur-g};}
+  }
+  return best;
+}
+let _id;
+function build(idx,reg,depth,maxD,parent,side){
+  let c0=0;for(const i of idx)if(trData.y[i]===0)c0++;const pred=c0>=idx.length-c0?0:1;
+  const node={id:_id++,reg,depth,parent,side,pred,idx};
+  if(depth>=maxD){node.leaf=true;trNodes.push(node);return node;}
+  const sp=bestSplit(idx,trData.X,trData.y);
+  if(!sp||sp.gain<0.02){node.leaf=true;trNodes.push(node);return node;}
+  node.leaf=false;node.f=sp.f;node.thr=sp.thr;
+  const rl=Object.assign({},reg),rr=Object.assign({},reg);
+  if(sp.f===0){rl.x1=sp.thr;rr.x0=sp.thr;}else{rl.y1=sp.thr;rr.y0=sp.thr;}
+  trNodes.push(node);
+  node.left=build(sp.L,rl,depth+1,maxD,node,'L');
+  node.right=build(sp.R,rr,depth+1,maxD,node,'R');
+  return node;
+}
+// tree-diagram layout (assign x by leaf order, y by depth)
+let _leaf;
+function layout(node){
+  node.dy=46+node.depth*78;
+  if(node.leaf){node.dx=30+(_leaf++)*64;return;}
+  layout(node.left);layout(node.right);node.dx=(node.left.dx+node.right.dx)/2;
+}
+function trReset(){
+  if(trTimer){clearInterval(trTimer);trTimer=null;document.getElementById('trAuto').textContent=I18N[lang].tr_auto;}
+  trData=trGen();_id=0;trNodes=[];
+  const root=build([...Array(trData.X.length).keys()],{x0:0,x1:1,y0:0,y1:1},0,2,null,null);
+  trData.root=root;_leaf=0;layout(root);
+  trReveal=trNodes.slice();trShown=0; // BFS order == push order here (pre-order, fine)
+  trDrawCanvas();trDrawSvg();document.getElementById('trCap').innerHTML=I18N[lang].tr_cap_start;
+}
+function trDrawCanvas(){
+  trX.clearRect(0,0,W,W);
+  const shown=trNodes.slice(0,trShown);
+  // tint leaves that are shown
+  for(const n of shown){if(n.leaf){trX.fillStyle=n.pred?'rgba(34,197,94,.14)':'rgba(129,140,248,.14)';trX.fillRect(px(n.reg.x0),px(n.reg.y0),px(n.reg.x1-n.reg.x0),px(n.reg.y1-n.reg.y0));}}
+  // points
+  for(let i=0;i<trData.X.length;i++){const[a,b]=trData.X[i];trX.beginPath();trX.arc(px(a),px(b),4.5,0,7);trX.fillStyle=trData.y[i]?'#22c55e':'#818cf8';trX.fill();}
+  // split lines for shown internal nodes
+  for(const n of shown){if(!n.leaf){trX.strokeStyle='#f59e0b';trX.lineWidth=2.5;trX.beginPath();
+    if(n.f===0){trX.moveTo(px(n.thr),px(n.reg.y0));trX.lineTo(px(n.thr),px(n.reg.y1));}
+    else{trX.moveTo(px(n.reg.x0),px(n.thr));trX.lineTo(px(n.reg.x1),px(n.thr));}
+    trX.stroke();}}
+}
+function trDrawSvg(){
+  const shown=trNodes.slice(0,trShown);let h='';
+  // edges
+  for(const n of shown){if(n.parent&&trNodes.indexOf(n)<trShown){h+=`<line x1="${n.parent.dx}" y1="${n.parent.dy}" x2="${n.dx}" y2="${n.dy}" stroke="#475569" stroke-width="1.6"/>`;}}
+  for(const n of shown){
+    const col=n.leaf?(n.pred?'#22c55e':'#818cf8'):'#f59e0b';
+    const label=n.leaf?(n.pred?'B':'A'):((n.f===0?'x':'y')+' ≤ '+n.thr.toFixed(2));
+    h+=`<rect x="${n.dx-34}" y="${n.dy-15}" width="68" height="30" rx="7" fill="#0b1120" stroke="${col}" stroke-width="1.8"/>`;
+    h+=`<text x="${n.dx}" y="${n.dy+4}" text-anchor="middle" font-family="Heebo" font-size="12" fill="#e2e8f0">${label}</text>`;
+  }
+  trSvg.innerHTML=h;
+}
+function trStep(){
+  if(trShown>=trNodes.length){if(trTimer)trBuild();return;}
+  trShown++;const n=trNodes[trShown-1];
+  trDrawCanvas();trDrawSvg();
+  const cap=n.leaf?I18N[lang].tr_cap_leaf.replace('{c}',n.pred?'B':'A'):I18N[lang].tr_cap_split.replace('{ax}',n.f===0?'x':'y').replace('{t}',n.thr.toFixed(2));
+  document.getElementById('trCap').innerHTML=cap;
+  if(trShown>=trNodes.length){document.getElementById('trCap').innerHTML=I18N[lang].tr_cap_done;if(trTimer)trBuild();}
+}
+function trBuild(){trTimer?(clearInterval(trTimer),trTimer=null):(trTimer=setInterval(trStep,650));document.getElementById('trAuto').textContent=trTimer?I18N[lang].tr_stop:I18N[lang].tr_auto;}
+
+/* ================= RANDOM FOREST ================= */
+const frC=document.getElementById('frCanvas'),frX=frC.getContext('2d');
+let frTrain,frTest,frTrees,frLast;
+function frGen(n,noise){const X=[],y=[];for(let i=0;i<n;i++){const a=rand(),b=rand();const dx=a-.5,dy=b-.5;let lab=Math.sqrt(dx*dx+dy*dy)<.35?1:0;if(rand()<noise)lab=1-lab;X.push([a,b]);y.push(lab);}return{X,y};}
+function pTree(X,y,depth,maxD,minLeaf){const n=y.length;let c0=0;for(const v of y)if(v===0)c0++;const nd={pred:c0>=n-c0?0:1};if(depth>=maxD||n<2*minLeaf||c0===0||c0===n){nd.leaf=true;return nd;}let best=null;for(let f=0;f<2;f++){const vals=[...new Set(X.map(p=>p[f]))].sort((a,b)=>a-b);for(let i=0;i<vals.length-1;i++){const thr=(vals[i]+vals[i+1])/2;const yl=[],yr=[];for(let j=0;j<n;j++)(X[j][f]<=thr?yl:yr).push(y[j]);if(yl.length<minLeaf||yr.length<minLeaf)continue;function gi(a){if(!a.length)return 0;let c=0;for(const v of a)if(v===0)c++;const p=c/a.length;return 1-p*p-(1-p)*(1-p);}const g=(yl.length*gi(yl)+yr.length*gi(yr))/n;if(!best||g<best.g)best={g,f,thr};}}if(!best){nd.leaf=true;return nd;}nd.leaf=false;nd.f=best.f;nd.thr=best.thr;const Xl=[],yl=[],Xr=[],yr=[];for(let j=0;j<n;j++){if(X[j][best.f]<=best.thr){Xl.push(X[j]);yl.push(y[j]);}else{Xr.push(X[j]);yr.push(y[j]);}}nd.left=pTree(Xl,yl,depth+1,maxD,minLeaf);nd.right=pTree(Xr,yr,depth+1,maxD,minLeaf);return nd;}
+function pPred(nd,x){while(!nd.leaf)nd=x[nd.f]<=nd.thr?nd.left:nd.right;return nd.pred;}
+function frVote(x){if(!frTrees.length)return 0;let s=0;for(const t of frTrees)s+=pPred(t,x);return s*2>=frTrees.length?1:0;}
+function frAcc(fn){let ok=0;for(let i=0;i<frTest.X.length;i++)if(fn(frTest.X[i])===frTest.y[i])ok++;return Math.round(ok/frTest.X.length*100);}
+function frReset(){srand(101);frTrain=frGen(260,.12);frTest=frGen(90,.12);frTrees=[];frLast=null;frDraw();frStats();document.getElementById('frCap').innerHTML=I18N[lang].fr_cap_start;}
+function frAdd(k){const n=frTrain.X.length;for(let c=0;c<k;c++){const Xs=[],ys=[];for(let i=0;i<n;i++){const j=Math.floor(rand()*n);Xs.push(frTrain.X[j]);ys.push(frTrain.y[j]);}frLast=pTree(Xs,ys,0,5,1);frTrees.push(frLast);}frDraw();frStats();
+  const cap=frTrees.length<=1?I18N[lang].fr_cap_one:(frTrees.length<8?I18N[lang].fr_cap_few:I18N[lang].fr_cap_many);
+  document.getElementById('frCap').innerHTML=cap.replace('{n}',frTrees.length);}
+function frDraw(){
+  frX.clearRect(0,0,W,W);const step=5;
+  // ensemble vote regions (solid)
+  if(frTrees.length)for(let i=0;i<W;i+=step)for(let j=0;j<W;j+=step){const c=frVote([i/W,j/W]);frX.fillStyle=c?'rgba(34,197,94,.16)':'rgba(129,140,248,.16)';frX.fillRect(i,j,step,step);}
+  // latest single tree boundary (faint pink jagged contour)
+  if(frLast)for(let i=0;i<W-step;i+=step)for(let j=0;j<W-step;j+=step){const a=pPred(frLast,[i/W,j/W]);if(a!==pPred(frLast,[(i+step)/W,j/W])||a!==pPred(frLast,[i/W,(j+step)/W])){frX.fillStyle='rgba(244,114,182,.55)';frX.fillRect(i,j,step,step);}}
+  // points
+  for(let i=0;i<frTrain.X.length;i++){const[a,b]=frTrain.X[i];frX.beginPath();frX.arc(px(a),px(b),4,0,7);frX.fillStyle=frTrain.y[i]?'#22c55e':'#818cf8';frX.fill();}
+}
+function frStats(){document.getElementById('frN').textContent=frTrees.length;
+  document.getElementById('frSingle').textContent=frLast?frAcc(x=>pPred(frLast,x))+'%':'–';
+  document.getElementById('frForest').textContent=frTrees.length?frAcc(frVote)+'%':'–';}
+
+/* ================= i18n ================= */
+const I18N={
+ he:{lr_auto:'▶ הרץ',lr_stop:'⏸ עצור',tr_auto:'בנייה אוטומטית',tr_stop:'⏸ עצור',
+   lr_cap_start:'קו אקראי. עוד לא הוזנו דוגמאות — הקו לא יודע כלום. לחצו "זוג הבא".',
+   lr_cap_step:'הוזנו עוד שתי דוגמאות (אחת מכל מחלקה), והקו התעדכן. הוא <b>ממשיך</b> להשתפר עם כל זוג (עם תנודה קטנה — הדיוק קופץ כי כל נקודה היא הכרעה 0/1). דיוק: <b>{a}</b>.',
+   lr_cap_done:'הקו התייצב על הגבול הטוב ביותר שאפשר כאן. הדיוק נעצר סביב 90% — <b>לא 100%</b>: המחלקות חופפות, אז שום קו לא יפריד אותן בצורה מושלמת. גם זו מציאות.',
+   tr_cap_start:'כל הנקודות על השולחן. לחצו "פיצול הבא" — העץ יבחר את הפיצול שמפריד הכי טוב.',
+   tr_cap_split:'פיצול על <b>{ax} ≤ {t}</b> — הצד הזה הכי "טהור" אחרי החיתוך. נוסף צומת לעץ.',
+   tr_cap_leaf:'עלה: האזור הזה כבר נקי, רובו מחלקה <b>{c}</b>. אין מה לפצל יותר.',
+   tr_cap_done:'העץ שלם. גבול-מדרגות שמקיף את פינת B בשני חיתוכים — בדיוק מה שקו לינארי בודד לא יכול לצייר.',
+   fr_cap_start:'דאטה רועש (עיגול עם רעש). לחצו "+ עץ" — כל עץ מתאמן על תת-מדגם אקראי.',
+   fr_cap_one:'עץ <b>בודד</b> (#{n}): הגבול הוורוד מתפתל ורועש — תלוי באילו נקודות במקרה ראה. לבד הוא לא יציב.',
+   fr_cap_few:'{n} עצים מצביעים. שימו לב: הגבול המלא (ההצבעה) כבר חלק יותר מהקו הוורוד של עץ בודד.',
+   fr_cap_many:'{n} עצים. ההצבעה התייצבה — גבול חלק ויציב, ודיוק ה-test של היער גבוה ויציב מזה של עץ בודד. זה Random Forest.'},
+ en:{lr_auto:'▶ Run',lr_stop:'⏸ Stop',tr_auto:'Auto-build',tr_stop:'⏸ Stop',
+   lr_cap_start:'A random line. No examples fed yet — the line knows nothing. Click "Next pair".',
+   lr_cap_step:'Two more examples came in (one from each class), and the line updated. It keeps <b>improving</b> with every pair (with a little jitter — accuracy hops because each point is a hard 0/1 call). Accuracy: <b>{a}</b>.',
+   lr_cap_done:'The line settled on the best boundary possible here. Accuracy stops around 90% — <b>not 100%</b>: the classes overlap, so no line separates them perfectly. That too is reality.',
+   tr_cap_start:'All points on the table. Click "Next split" — the tree picks the split that separates best.',
+   tr_cap_split:'Split on <b>{ax} ≤ {t}</b> — this side is the "purest" after the cut. A node is added to the tree.',
+   tr_cap_leaf:'Leaf: this region is already clean, mostly class <b>{c}</b>. Nothing left to split.',
+   tr_cap_done:'Tree complete. A staircase boundary wrapping corner B in two cuts — exactly what a single straight line cannot draw.',
+   fr_cap_start:'Noisy data (a circle with noise). Click "+ tree" — each tree trains on a random subsample.',
+   fr_cap_one:'A <b>single</b> tree (#{n}): the pink boundary is jagged and noisy — it depends on which points it happened to see. Alone, it is unstable.',
+   fr_cap_few:'{n} trees voting. Notice: the filled (vote) boundary is already smoother than any single tree\'s pink line.',
+   fr_cap_many:'{n} trees. The vote has stabilized — a smooth, steady boundary, and the forest\'s test accuracy is higher and steadier than a single tree\'s. That is Random Forest.'}
+};
+
+let lang='he';
+const HE_STATIC={},EN_STATIC={
+ nav_back:'‹ back to guides',
+ title:'How models learn — step by step',
+ subtitle:'Before overfitting and train/test — what does "learning" even mean? Watch it happen: a random line shifting with each example (logistic regression), and a tree built split by split. No magic — these are the real algorithms, slow enough to see.',
+ eb1:'Model 1 · Logistic',lr_title:'The line that learns — Logistic Regression',
+ lr_lead:'Start from a <b>random line</b> (the initial guess). Each click feeds a pair of examples (one from each class) — the points "light up" and the line <b>re-adjusts</b> to fit everything fed. Notice accuracy climbs <b>gradually</b> and never hits 100% — because the classes overlap. That is all "training" is.',
+ lr_c0:'class A',lr_c1:'class B',lr_un:'not fed yet',
+ lr_next:'Next pair',lr_reset:'↻ new random line',lr_fed:'fed',lr_acc:'accuracy',
+ lr_note:'<b>The mechanic:</b> for each point the model checks how wrong it was, and shifts the line\'s weights in the direction that lowers the error (gradient descent). A far, hard point shifts it more. That\'s it: a sum of small nudges.',
+ eb2:'Model 2 · Tree',tr_title:'The tree that grows — Decision Tree',
+ tr_lead:'A tree doesn\'t move a line. It asks one question at a time: "<b>which split, on which feature, separates best?</b>". Each split cuts the space in two and adds a node. That\'s how it builds a staircase boundary. Click split-by-split and watch both sides build together.',
+ tr_cut:'— split line',tr_next:'Next split',tr_reset:'↻ reset',
+ tr_note:'<b>"The best split":</b> the model tests every threshold on every feature and picks the one that leaves each side "purest" (a big majority for one class — the Gini measure). It repeats this in each branch until clean. More depth = a more complex boundary (and easier to overfit).',
+ eb_f:'Model 3 · Forest',fr_title:'The forest that votes — Random Forest',
+ fr_lead:'A <b>single</b> deep tree on noisy data overfits — its boundary contorts around every point, and it depends heavily on which examples it happened to see. The fix: train <b>many trees</b>, each on a random subsample, and let them <b>vote</b>. Add trees one by one — the thin (last-tree) boundary is noisy, but the full vote (filled) smooths out and stabilizes.',
+ fr_single:'last tree\'s boundary',fr_vote:'filled regions = the vote',
+ fr_add1:'+ tree',fr_add10:'+ 10 trees',fr_reset:'↻ reset',
+ fr_n:'trees',fr_st:'single tree (test)',fr_ft:'forest (test)',
+ fr_note:'<b>Why it works:</b> each tree errs in a different place (different random noise). When they vote, the errors cancel out and the shared signal remains. "Wisdom of the crowd" — many mediocre, diverse models together beat a single brilliant-but-brittle one.',
+ bridge:'You saw how they <b>learn</b>. Next question: when does that learning <b>break</b> — when does a model "memorize" instead of understand?',
+ bridge_link:'Continue to Overfitting, Leakage & Model Comparison ›',
+ eb3:'Takeaways',tk_title:'3 points',
+ tk1:'<b class="en">Logistic Regression</b> learns <b>one smooth line</b> by nudging weights a little with each example. Simple and stable — but limited to a linear boundary.',
+ tk2:'<b class="en">Decision Tree</b> learns a <b>chain of yes/no questions</b>, each the most-separating split. Builds a flexible staircase boundary — but too flexible can memorize.',
+ tk3:'<b>"Training" = tuning the model to the data.</b> The difference between models is <b>how</b> they tune — and that decides which boundary they can draw.'
+};
+function setLang(l){
+  lang=l;document.documentElement.lang=l;document.documentElement.dir=l==='he'?'rtl':'ltr';
+  document.getElementById('bt-he').classList.toggle('active',l==='he');
+  document.getElementById('bt-en').classList.toggle('active',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(EN_STATIC[k]!==undefined)el.innerHTML=(l==='en'?EN_STATIC[k]:HE_STATIC[k]);});
+  document.getElementById('lrAuto').textContent=lrTimer?I18N[l].lr_stop:I18N[l].lr_auto;
+  document.getElementById('trAuto').textContent=trTimer?I18N[l].tr_stop:I18N[l].tr_auto;
+  lrCap(I18N[l].lr_cap_start);document.getElementById('trCap').innerHTML=I18N[l].tr_cap_start;
+  document.getElementById('frCap').innerHTML=(!frTrees||!frTrees.length)?I18N[l].fr_cap_start:(frTrees.length<8?I18N[l].fr_cap_few:I18N[l].fr_cap_many).replace('{n}',frTrees.length);
+}
+document.querySelectorAll('[data-i18n]').forEach(el=>{HE_STATIC[el.getAttribute('data-i18n')]=el.innerHTML;});
+
+// init
+lrReset();trReset();frReset();
+</script>
+</body>
+</html>
