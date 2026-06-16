@@ -51,6 +51,9 @@ input[type=range]:disabled{opacity:.35}
 .barfill{height:100%;border-radius:7px;transition:width .5s ease}
 .barrow .pct{font-weight:700;text-align:left;font-size:.95rem}
 .winner{outline:2px solid #22c55e;border-radius:9px}
+.errbars{display:flex;gap:3px;align-items:flex-end;height:56px;margin:.5rem 0 .8rem;padding:.3rem;background:#1a1a2e;border-radius:8px}
+.errbars .eb{flex:1;background:#3b82f6;border-radius:3px 3px 0 0;min-height:2px}
+.errbars .eb.big{background:#f87171}
 .btn{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:.7rem 1.3rem;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:.95rem}
 .btn.secondary{background:#0b1120;border:1px solid rgba(148,163,184,.25);color:#cbd5e1}
 .toggle-leak{display:flex;align-items:center;gap:.7rem;margin:.3rem 0 1rem}
@@ -210,6 +213,22 @@ b.en{color:#a5b4fc;font-weight:600}
       <div class="modelcard" id="cardB"></div>
     </div>
     <div class="callout" id="cmpNote" style="margin-top:1rem"></div>
+  </div>
+
+  <!-- ================= REGRESSION METRIC: RMSE vs MAE ================= -->
+  <div class="section">
+    <span class="eyebrow" data-i18n="ebr">מדד רגרסיה</span>
+    <h2 data-i18n="rm_title">RMSE מול MAE — אותה מלכודת, בצד הרגרסיה</h2>
+    <p class="lead" data-i18n="rm_lead">חוזים זמן הגעה (בדקות). שני מודלים על אותו test בן 10 חיזויים. מודל "יציב" טועה קצת בכל פעם; מודל "קופצני" קולע בול כמעט תמיד — אבל פעם אחת מפספס בענק. בחרו מדד, וראו מי "מנצח". כל עמודה = הטעות בחיזוי אחד.</p>
+    <div class="seg" id="regSeg" style="max-width:340px;margin-bottom:1rem">
+      <button class="active" data-r="mae" onclick="pickReg('mae')">MAE</button>
+      <button data-r="rmse" onclick="pickReg('rmse')">RMSE</button>
+    </div>
+    <div class="cmp2">
+      <div class="modelcard" id="regA"></div>
+      <div class="modelcard" id="regB"></div>
+    </div>
+    <div class="callout" id="regNote" style="margin-top:1rem"></div>
   </div>
 
   <!-- ================= TAKEAWAYS ================= -->
@@ -424,6 +443,32 @@ function renderCards(){
   note.innerHTML=T['cmp_note_'+curMetric];
 }
 
+// ---------- regression metric: RMSE vs MAE ----------
+// Same 10-point test set, two error profiles. Lower is better for both metrics.
+// A (steady): off by 2 every time.  B (spiky): perfect 9 times, one miss of 10.
+// MAE picks B (0.9 < 2.0); RMSE picks A (2.0 < 3.16) — the winner flips.
+const REG={A:{errs:[2,2,2,2,2,2,2,2,2,2]},B:{errs:[0,0,0,0,0,0,0,0,0,10]}};
+function maeOf(e){return e.reduce((s,v)=>s+Math.abs(v),0)/e.length;}
+function rmseOf(e){return Math.sqrt(e.reduce((s,v)=>s+v*v,0)/e.length);}
+let curReg='mae';
+function pickReg(k){curReg=k;document.querySelectorAll('#regSeg button').forEach(b=>b.classList.toggle('active',b.dataset.r===k));renderReg();}
+function regBars(errs){const mx=Math.max(...errs,1);return '<div class="errbars">'+errs.map(v=>`<div class="eb${v>=mx*0.8&&mx>4?' big':''}" style="height:${Math.max(2,Math.round(v/mx*50))}px"></div>`).join('')+'</div>';}
+function renderReg(){
+  const T=I18N[lang];
+  const v={A:{mae:maeOf(REG.A.errs),rmse:rmseOf(REG.A.errs)},B:{mae:maeOf(REG.B.errs),rmse:rmseOf(REG.B.errs)}};
+  const wId=v.A[curReg]<v.B[curReg]?'A':'B'; // lower error wins
+  [['A','regA',T.rm_a],['B','regB',T.rm_b]].forEach(([id,el,desc])=>{
+    document.getElementById(el).innerHTML=
+      `<div class="win-badge ${id===wId?'show':''}">${T.cmp_winner}</div>`+
+      `<h3>${T.cmp_model} ${id}</h3><div class="sub">${desc}</div>`+
+      regBars(REG[id].errs)+
+      `<div class="mline${curReg==='mae'?' on':''}"><span>MAE</span><b>${v[id].mae.toFixed(2)}</b></div>`+
+      `<div class="mline${curReg==='rmse'?' on':''}"><span>RMSE</span><b>${v[id].rmse.toFixed(2)}</b></div>`;
+  });
+  const note=document.getElementById('regNote');note.className='callout c-info';
+  note.innerHTML=T['rm_note_'+curReg];
+}
+
 // ---------- i18n ----------
 const I18N={
  he:{nav_back:'‹ חזרה למדריכים',
@@ -443,6 +488,9 @@ const I18N={
   cmp_note_acc:'⚠️ לפי <b>accuracy</b> ניצח מודל A — 90%. אבל A מנבא "אין אש" <b>תמיד</b> ותופס <b>אפס</b> שריפות (recall 0). מדד בודד בחר לכם את המודל חסר-התועלת — ככה accuracy גבוה על דאטה לא-מאוזן מסתיר כישלון מוחלט.',
   cmp_note_rec:'✅ לפי <b>recall</b> ניצח מודל B — תופס 70% מהשריפות. כשהמטרה היא לא לפספס (אש, הונאה, מחלה) — זה המדד הנכון, גם אם ה-accuracy שלו נמוך ב-1%.',
   cmp_note_f1:'✅ לפי <b>F1</b> (איזון precision ו-recall) ניצח B. F1=0 חושף ש-A חסר-תועלת למרות accuracy 90%. המסקנה: בחרו מדד שתואם למטרה, אל תשוו על accuracy בלבד.',
+  rm_a:'יציב — טועה ב-2 דק׳ בכל חיזוי',rm_b:'קופצני — בול כמעט תמיד, פעם אחת פספוס של 10',
+  rm_note_mae:'⚖️ לפי <b>MAE</b> ניצח מודל B — 0.90 מול 2.00. MAE היא הטעות הממוצעת בערך מוחלט: כל טעות נספרת לפי גודלה בלבד. B מנצח כי רוב הזמן הוא קולע בול — אבל שימו לב ש-MAE כמעט בולעת את הפספוס הבודד של 10 דקות.',
+  rm_note_rmse:'🔄 לפי <b>RMSE</b> המנצח מתהפך — A (2.00) עוקף את B (3.16). RMSE מעלה כל טעות בריבוע, אז פספוס בודד גדול "צועק" הרבה יותר מהרבה טעויות קטנות. אם טעות גדולה אחת מסוכנת (זמן הגעה לניתוח, מלאי קריטי) — זה המדד הנכון, וה-A היציב עדיף. אותו עיקרון כמו accuracy מול recall: <b>המדד בוחר את המנצח.</b>',
   v_picked:'ה-validation בחר <b>עומק {d}</b> (הכי טוב על val: {v}%). עכשיו הכלל: לא נוגעים ב-test כדי לבחור. לחצו לחשוף את ה-test — פעם אחת.',
   v_revealed:'בעומק {d}: validation {v}% · <b>test {t}%</b> — זה המספר ההוגן שמדווחים. שימו לב ש-test ({t}%) מעט נמוך מ-val ({v}%): ל-val כבר "התאמתם" כשבחרתם לפיו, אז הוא אופטימי. ה-test, שנגעתם בו פעם אחת, לא מנופח.'},
  en:{nav_back:'‹ back to guides',
@@ -462,6 +510,9 @@ const I18N={
   cmp_note_acc:'⚠️ By <b>accuracy</b>, Model A wins — 90%. But A predicts "no fire" <b>always</b> and catches <b>zero</b> fires (recall 0). A single metric just picked the useless model — that\'s how high accuracy on imbalanced data hides total failure.',
   cmp_note_rec:'✅ By <b>recall</b>, Model B wins — it catches 70% of fires. When the goal is not to miss (fire, fraud, disease) this is the right metric, even though its accuracy is 1% lower.',
   cmp_note_f1:'✅ By <b>F1</b> (balancing precision and recall), B wins. F1=0 exposes A as useless despite 90% accuracy. Takeaway: pick a metric that matches the goal — don\'t compare on accuracy alone.',
+  rm_a:'steady — off by 2 min every prediction',rm_b:'spiky — spot-on almost always, one miss of 10',
+  rm_note_mae:'⚖️ By <b>MAE</b>, Model B wins — 0.90 vs 2.00. MAE is the mean absolute error: each error counts only by its size. B wins because it\'s usually spot-on — but notice MAE almost swallows that single 10-minute miss.',
+  rm_note_rmse:'🔄 By <b>RMSE</b> the winner flips — A (2.00) beats B (3.16). RMSE squares every error, so one big miss "screams" far louder than many small ones. If a single large error is dangerous (ETA to surgery, critical stock) this is the right metric, and the steady A is better. Same principle as accuracy vs recall: <b>the metric picks the winner.</b>',
   v_picked:'Validation chose <b>depth {d}</b> (best on val: {v}%). Now the rule: don\'t touch test to choose. Click to reveal the test — once.',
   v_revealed:'At depth {d}: validation {v}% · <b>test {t}%</b> — that\'s the honest number you report. Note test ({t}%) sits a bit below val ({v}%): you already "fit" to val by choosing on it, so val is optimistic. The test, touched once, isn\'t inflated.'}
 };
@@ -472,7 +523,7 @@ function setLang(l){
   document.getElementById('bt-he').classList.toggle('active',l==='he');
   document.getElementById('bt-en').classList.toggle('active',l==='en');
   document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(EN_STATIC[k]!==undefined)el.innerHTML=(l==='en'?EN_STATIC[k]:HE_STATIC[k]);});
-  renderPG();drawU();renderLeak();renderCards();
+  renderPG();drawU();renderLeak();renderCards();renderReg();
 }
 // capture HE static text on load, provide EN
 const HE_STATIC={},EN_STATIC={
@@ -505,6 +556,8 @@ const HE_STATIC={},EN_STATIC={
  eb4:'The fourth trap',cmp_title:'Comparing on a single metric — how accuracy crowns the worst model',
  cmp_lead:'M3 asks you to pick a winner — but <b>by which metric?</b> Imbalanced data: 100 images, only 10 with fire. Two models on the same test. Pick a metric — and see who "wins".',
  m_rec:'Recall · catches fire',
+ ebr:'Regression metric',rm_title:'RMSE vs MAE — the same trap, on the regression side',
+ rm_lead:'Predicting arrival time (minutes). Two models on the same 10-point test set. A "steady" model is off a little every time; a "spiky" model nails it almost always — but once misses big. Pick a metric, and see who "wins". Each bar = the error of one prediction.',
  eb5:'Takeaways',tk_title:'5 key points',
  tk1:'A linear (logistic) classifier draws a smooth boundary (high bias = too simple, low variance) — stable, but won\'t capture complex shapes. A tree cuts rectangles (low bias, high variance = too flexible) — flexible, but can wrap any noise. That\'s the "mechanic".',
  tk2:'<b>Overfitting = the gap between train and test.</b> The test set <i>reveals</i> it, doesn\'t prevent it. A perfect train score is never success by itself.',
@@ -515,7 +568,7 @@ const HE_STATIC={},EN_STATIC={
 document.querySelectorAll('[data-i18n]').forEach(el=>{HE_STATIC[el.getAttribute('data-i18n')]=el.innerHTML;});
 
 // ---------- init ----------
-pickModel('tree');drawU();renderLeak();renderCards();
+pickModel('tree');drawU();renderLeak();renderCards();renderReg();
 </script>
 </body>
 </html>
