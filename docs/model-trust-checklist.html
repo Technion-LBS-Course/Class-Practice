@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Is Your Model Good? — The Five Trust Checks</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Heebo',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.7;overflow-x:hidden}
+.top-nav{position:fixed;top:0;left:0;right:0;height:54px;background:rgba(15,23,42,.85);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,.15);display:flex;align-items:center;justify-content:space-between;padding:0 1.2rem;z-index:100}
+.top-nav a{color:#94a3b8;text-decoration:none;font-size:.9rem}
+.lang-toggle button{background:transparent;border:1px solid rgba(148,163,184,.3);color:#94a3b8;padding:.3rem .7rem;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600}
+.lang-toggle button.active{background:#6366f1;color:#fff;border-color:#6366f1}
+.wrap{max-width:880px;margin:0 auto;padding:5rem 1.2rem 4rem}
+.hero{text-align:center;padding:1rem 0 2rem}
+.hero h1{font-size:2.2rem;font-weight:800;background:linear-gradient(90deg,#6366f1,#c084fc,#f472b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.3}
+.hero p{color:#94a3b8;font-size:1.05rem;max-width:660px;margin:1rem auto 0}
+.hero .ground{display:inline-block;margin-top:1rem;font-size:.82rem;color:#818cf8;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);padding:.35rem .9rem;border-radius:999px}
+.section{background:#1a1a2e;border:1px solid rgba(148,163,184,.15);border-radius:18px;padding:1.8rem;margin:1.4rem 0;scroll-margin-top:70px}
+.section h2{font-size:1.45rem;font-weight:700;margin-bottom:.4rem;color:#f1f5f9}
+.section .lead{color:#94a3b8;margin-bottom:1.3rem}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;letter-spacing:.06em;color:#818cf8;background:rgba(99,102,241,.12);padding:.25rem .7rem;border-radius:999px;margin-bottom:.7rem}
+.eyebrow .num{background:#6366f1;color:#fff;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.72rem}
+.seg{display:flex;gap:.4rem;background:#0b1120;padding:.35rem;border-radius:10px;border:1px solid rgba(148,163,184,.12);flex-wrap:wrap}
+.seg button{flex:1;min-width:90px;background:transparent;border:none;color:#94a3b8;padding:.5rem;border-radius:7px;cursor:pointer;font-family:inherit;font-weight:600;font-size:.9rem}
+.seg button.active{background:#6366f1;color:#fff}
+.callout{border-radius:12px;padding:.9rem 1rem;font-size:.95rem;border:1px solid;margin-top:1rem}
+.c-good{background:rgba(34,197,94,.08);border-color:rgba(34,197,94,.3);color:#86efac}
+.c-warn{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:#fca5a5}
+.c-info{background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.3);color:#c4b5fd}
+.bars{display:flex;flex-direction:column;gap:.7rem;margin-top:1rem}
+.barrow{display:grid;grid-template-columns:150px 1fr 78px;align-items:center;gap:.7rem}
+@media(max-width:560px){.barrow{grid-template-columns:96px 1fr 64px}}
+.barrow .name{font-size:.88rem;color:#cbd5e1}
+.bartrack{background:#0b1120;border-radius:7px;height:28px;overflow:hidden;border:1px solid rgba(148,163,184,.12);position:relative}
+.barfill{height:100%;border-radius:7px;transition:width .5s ease}
+.barrow .pct{font-weight:700;text-align:left;font-size:.92rem;font-variant-numeric:tabular-nums}
+.verdict{display:inline-flex;align-items:center;gap:.5rem;font-weight:800;font-size:1rem;padding:.4rem .9rem;border-radius:10px;margin-top:1rem}
+.v-pass{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.35)}
+.v-fail{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.35)}
+.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;text-align:center;margin-top:1rem}
+@media(max-width:560px){.metrics{grid-template-columns:1fr 1fr}}
+.metric{background:#0b1120;border:1px solid rgba(148,163,184,.12);border-radius:10px;padding:.75rem .4rem}
+.metric .v{font-size:1.45rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.metric .k{font-size:.72rem;color:#94a3b8;margin-top:.35rem}
+.m-train .v{color:#22c55e}.m-test .v{color:#3b82f6}.m-gap .v{color:#f87171}
+.slider-row{margin-top:1.1rem}
+.slider-row label{display:flex;justify-content:space-between;font-size:.92rem;margin-bottom:.5rem;color:#cbd5e1}
+.slider-row label b{color:#818cf8;font-size:1.1rem}
+input[type=range]{width:100%;height:7px;-webkit-appearance:none;appearance:none;background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e);border-radius:4px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;cursor:grab;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.btn{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;border:none;padding:.65rem 1.2rem;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:.92rem}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.secondary{background:#0b1120;border:1px solid rgba(148,163,184,.25);color:#cbd5e1}
+.toggle-leak{display:flex;align-items:center;gap:.7rem;margin:1.1rem 0 .3rem}
+.switch{position:relative;width:50px;height:28px;background:#334155;border-radius:999px;cursor:pointer;transition:.2s;flex:none}
+.switch.on{background:#ef4444}
+.switch .knob{position:absolute;top:3px;right:3px;width:22px;height:22px;background:#fff;border-radius:50%;transition:.2s}
+.switch.on .knob{right:25px}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin:.4rem 0 .2rem}
+@media(max-width:560px){.chips{grid-template-columns:1fr}}
+.chip{background:#0b1120;border:1px solid rgba(148,163,184,.18);border-radius:11px;padding:.7rem .9rem;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:.15rem}
+.chip:hover{border-color:#6366f1}
+.chip .cn{font-weight:700;color:#f1f5f9;font-size:.95rem}
+.chip .cd{font-size:.78rem;color:#94a3b8}
+.chip .cv{font-size:.78rem;font-weight:700;margin-top:.3rem;display:none}
+.chip.safe{border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.07)}
+.chip.leak{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.07)}
+.chip.revealed .cv{display:block}
+.chip.safe .cv{color:#86efac}.chip.leak .cv{color:#fca5a5}
+.sub-h{font-size:1.02rem;font-weight:700;color:#f1f5f9;margin:1.6rem 0 .5rem}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+.ecard{background:#0b1120;border:1px solid rgba(148,163,184,.15);border-radius:11px;padding:.7rem .9rem;font-size:.86rem}
+.ecard .et{font-weight:700;color:#f1f5f9}
+.ecard .es{font-size:.74rem;color:#64748b;margin:.1rem 0 .45rem}
+.ecard .er{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:#cbd5e1}
+.ecard .er b{color:#f1f5f9}
+.ecard.err{border-color:rgba(239,68,68,.3)}
+.ecard.hit{border-color:rgba(34,197,94,.3)}
+.takeaways{display:flex;flex-direction:column;gap:.7rem}
+.scorerow{display:grid;grid-template-columns:34px 1fr auto;gap:.8rem;align-items:center;background:#0b1120;border:1px solid rgba(148,163,184,.14);border-radius:12px;padding:.85rem 1rem}
+.scorerow .mark{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem}
+.scorerow .mark.ok{background:rgba(34,197,94,.16);color:#86efac}
+.scorerow .ttl{font-weight:700;color:#f1f5f9;font-size:.98rem}
+.scorerow .dsc{font-size:.82rem;color:#94a3b8}
+.scorerow .grade{font-size:.78rem;font-weight:700;color:#86efac;background:rgba(34,197,94,.12);padding:.25rem .6rem;border-radius:999px;white-space:nowrap}
+.note{font-size:.85rem;color:#64748b;margin-top:.7rem}
+b.en{color:#a5b4fc;font-weight:600}
+.legend{display:flex;gap:1.1rem;flex-wrap:wrap;font-size:.8rem;color:#94a3b8;margin-top:.7rem}
+.legend span{display:flex;align-items:center;gap:.4rem}
+.dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="top-nav">
+  <a href="index.html" data-i18n="nav_back">‹ חזרה למדריכים</a>
+  <div class="lang-toggle">
+    <button id="bt-he" class="active" onclick="setLang('he')">HE</button>
+    <button id="bt-en" onclick="setLang('en')">EN</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <h1 data-i18n="title">האם המודל שלכם באמת טוב?</h1>
+    <p data-i18n="subtitle">בניתם מודל, יש מספר על המסך. עכשיו השאלה האחת שמפרידה מודל אמיתי מ-notebook יפה: <b>למספר הזה אפשר להאמין?</b> חמש בדיקות. כל אחת חיה — ועל מספרים אמיתיים ממודל הגובה שאימנּו על GeoNames ישראל.</p>
+    <span class="ground" data-i18n="ground">🗺️ כל המספרים כאן הם פלט אמיתי של verify_model.py על מודל RandomForest לחיזוי גובה</span>
+  </div>
+
+  <!-- ===== CHECK 1: BEAT THE BASELINE ===== -->
+  <div class="section" id="s1">
+    <span class="eyebrow"><span class="num">1</span> <span data-i18n="eb1">קו הבסיס</span></span>
+    <h2 data-i18n="t1">ניצחתם את ה-baseline?</h2>
+    <p class="lead" data-i18n="l1">ה-baseline הוא הרצפה: ניחוש טיפש (חציון ברגרסיה, רוב בסיווג). מודל שלא עוקף אותו לא הוסיף ערך — גם אם המספר נראה סביר. בחרו target וראו את ההשוואה על אותו test.</p>
+    <div class="seg" id="seg1">
+      <button class="active" data-k="elevation" onclick="pick1('elevation')" data-i18n="b1_elev">גובה ✅</button>
+      <button data-k="feature" onclick="pick1('feature')" data-i18n="b1_feat">סוג מקום ✅</button>
+      <button data-k="population" onclick="pick1('population')" data-i18n="b1_pop">אוכלוסייה ❌</button>
+    </div>
+    <div class="bars" id="bars1"></div>
+    <div id="v1"></div>
+    <div class="callout c-info" id="note1"></div>
+  </div>
+
+  <!-- ===== CHECK 2: TEST NOT TRAIN ===== -->
+  <div class="section" id="s2">
+    <span class="eyebrow"><span class="num">2</span> <span data-i18n="eb2">test ולא train</span></span>
+    <h2 data-i18n="t2">מדדתם על test, לא על train?</h2>
+    <p class="lead" data-i18n="l2">ציון על train תמיד מנופח — המודל כבר ראה את התשובות. הנה מודל הגובה שלנו, אותו מודל בדיוק, נמדד על שני הסטים:</p>
+    <div class="metrics">
+      <div class="metric m-train"><div class="v" id="m2train">9</div><div class="k" data-i18n="k_train">MAE על TRAIN (מ')</div></div>
+      <div class="metric m-test"><div class="v" id="m2test">68</div><div class="k" data-i18n="k_test">MAE על TEST (מ')</div></div>
+      <div class="metric m-gap"><div class="v" id="m2gap">×7</div><div class="k" data-i18n="k_gap">הפער</div></div>
+    </div>
+    <div class="callout c-warn" data-i18n="note2a"><b>הפער הזה הוא overfitting אמיתי:</b> RandomForest בעומק מלא כמעט "משנן" את ה-train (טעות 9 מ') אבל על מקומות חדשים טועה 68 מ'. זה לא פוסל את המודל — <b>המספר ההוגן הוא תמיד של ה-test</b>. הפער עצמו הוא האבחנה.</div>
+
+    <p class="sub-h" data-i18n="t2b">השדרוג: train / validation / test</p>
+    <p class="lead" data-i18n="l2b">ברגע שאתם <b>בוחרים</b> עומק לפי הציון על test — כבר עשיתם לו overfit. הפתרון: מכווננים על validation (מציצים כמה שרוצים), ונוגעים ב-test פעם אחת בסוף. גררו את העומק וראו את ה-validation; ואז חשפו את ה-test.</p>
+    <div class="slider-row">
+      <label><span data-i18n="depth_lbl">עומק העץ (max_depth)</span> <b id="depthVal">∞</b></label>
+      <input type="range" id="depth2" min="0" max="5" value="5" step="1" oninput="onDepth2()">
+    </div>
+    <div class="bars">
+      <div class="barrow"><span class="name" data-i18n="bn_val">MAE על VALIDATION</span><div class="bartrack"><div class="barfill" id="b2val" style="background:#f59e0b;width:0"></div></div><span class="pct" id="b2valP" style="color:#f59e0b">–</span></div>
+      <div class="barrow"><span class="name" data-i18n="bn_test">MAE על TEST</span><div class="bartrack"><div class="barfill" id="b2te" style="background:#3b82f6;width:0"></div></div><span class="pct" id="b2teP" style="color:#3b82f6">?</span></div>
+    </div>
+    <button class="btn" id="revealBtn" style="margin-top:1rem" onclick="revealTest()" data-i18n="reveal">חשפו את ה-test (פעם אחת)</button>
+    <div class="callout c-info" id="note2b" data-i18n="note2b_0">גררו לעומק הטוב ביותר ב-validation, ואז לחצו "חשפו את ה-test".</div>
+  </div>
+
+  <!-- ===== CHECK 3: LEAKAGE ===== -->
+  <div class="section" id="s3">
+    <span class="eyebrow"><span class="num">3</span> <span data-i18n="eb3">זליגת מידע</span></span>
+    <h2 data-i18n="t3">אין זליגת מידע (leakage)?</h2>
+    <p class="lead" data-i18n="l3">זליגה = מידע שלא יהיה זמין ברגע החיזוי, ובכל זאת חלחל לאימון. הציון יוצא מעולה במעבדה וקורס באמת. שלא כמו overfitting — זליגה <b>שקטה</b>: גם ה-test נראה מצוין.</p>
+
+    <p class="sub-h" data-i18n="t3a">מבחן רגע-החיזוי — לחצו על כל feature: בטוח או דולף?</p>
+    <p class="lead" data-i18n="l3a">לחיזוי גובה של מקום: על כל עמודה שאלו "האם הערך הזה היה בידיי <b>לפני</b> שהתשובה נודעה?". נחשו, ואז גלו.</p>
+    <div class="chips" id="chips3"></div>
+    <button class="btn secondary" style="margin-top:.7rem" onclick="revealChips()" data-i18n="reveal_chips">גלו את התשובות</button>
+
+    <p class="sub-h" data-i18n="t3b">מבחן הריח — הציון שמשקר</p>
+    <p class="lead" data-i18n="l3b">מזריקים feature שמכיל בסתר את התשובה (כמו "גובה השכן"). הדליקו את המתג וראו את ה-test "קופץ" למצוין — בלי שום פער מחשיד.</p>
+    <div class="toggle-leak">
+      <div class="switch" id="leakSwitch" onclick="toggleLeak()"><div class="knob"></div></div>
+      <span id="leakLabel" data-i18n="lk_off">בלי feature דולף</span>
+    </div>
+    <div class="bars">
+      <div class="barrow"><span class="name" data-i18n="lk_train">MAE על TRAIN</span><div class="bartrack"><div class="barfill" id="lkTrain" style="background:#22c55e;width:0"></div></div><span class="pct" id="lkTrainP" style="color:#22c55e">–</span></div>
+      <div class="barrow"><span class="name" data-i18n="lk_test">MAE על TEST</span><div class="bartrack"><div class="barfill" id="lkTest" style="background:#3b82f6;width:0"></div></div><span class="pct" id="lkTestP" style="color:#3b82f6">–</span></div>
+    </div>
+    <div class="callout c-info" id="lkNote" data-i18n="lk_note_off">כרגע בלי דליפה: ה-test מציאותי (68 מ'). הדליקו את המתג.</div>
+
+    <p class="sub-h" data-i18n="t3c">המלכודת המרחבית — חלוקה אקראית שמשקרת</p>
+    <p class="lead" data-i18n="l3c">אותו מודל KNN לחיזוי גובה, בשתי חלוקות. אקראית מאפשרת לכל נקודת test לשאוב "תאומה" כמעט-זהה מה-train (אוטוקורלציה מרחבית 0.96) — אז הציון מנופח.</p>
+    <div class="bars">
+      <div class="barrow"><span class="name" data-i18n="tw_rand">אקראית (דולפת)</span><div class="bartrack"><div class="barfill" style="background:#ef4444;width:34%"></div></div><span class="pct" style="color:#fca5a5">29 מ'</span></div>
+      <div class="barrow"><span class="name" data-i18n="tw_spat">מרחבית (הוגנת)</span><div class="bartrack"><div class="barfill" style="background:#3b82f6;width:100%"></div></div><span class="pct" style="color:#93c5fd">86 מ'</span></div>
+    </div>
+    <div class="callout c-warn" data-i18n="note3c">החלוקה האקראית נראית פי 3 טובה יותר — אבל זה שקר. בדאטה מרחבי מחלקים לפי מקום (GroupSplit), לא לפי שורה. אותו עיקרון: scaler/encoder עושים fit על train בלבד, אחרת ה-test דולף דרך ההכנה.</div>
+  </div>
+
+  <!-- ===== CHECK 4: THE RIGHT METRIC ===== -->
+  <div class="section" id="s4">
+    <span class="eyebrow"><span class="num">4</span> <span data-i18n="eb4">המדד הנכון</span></span>
+    <h2 data-i18n="t4">המדד מתאים לבעיה?</h2>
+    <p class="lead" data-i18n="l4">על חיזוי <b>סוג המקום</b> (feature_class) יש 8 מחלקות לא-מאוזנות — הנפוצה (S) לבדה היא 35%. בחרו מדד וראו מה הוא אומר על מודל-דמה שמנחש <b>תמיד</b> את הקבוצה הנפוצה.</p>
+    <div class="legend" id="classBal" style="margin-bottom:1rem"></div>
+    <div class="seg" id="seg4" style="max-width:420px">
+      <button class="active" data-k="acc" onclick="pick4('acc')">Accuracy</button>
+      <button data-k="bal" onclick="pick4('bal')" data-i18n="b4_bal">Balanced accuracy</button>
+    </div>
+    <div class="bars" id="bars4"></div>
+    <div class="callout" id="note4"></div>
+  </div>
+
+  <!-- ===== CHECK 5: WHERE IT ERRS ===== -->
+  <div class="section" id="s5">
+    <span class="eyebrow"><span class="num">5</span> <span data-i18n="eb5">איפה הוא טועה</span></span>
+    <h2 data-i18n="t5">אתם יודעים איפה הוא טועה?</h2>
+    <p class="lead" data-i18n="l5">מספר כללי אחד (MAE 68 מ') מסתיר את הסיפור. פלחו את הטעות לפי חתך — וראו איפה המודל קורס. לחצו על חתך.</p>
+    <div class="bars" id="slices5"></div>
+    <div class="callout c-info" id="note5" data-i18n="note5_0">לחצו על חתך feature_class כדי לראות את הטעות שלו לעומק.</div>
+
+    <p class="sub-h" data-i18n="t5b">לא רק בממוצע — דוגמאות אמיתיות</p>
+    <div class="seg" id="seg5b" style="max-width:420px">
+      <button class="active" data-k="err" onclick="pick5b('err')" data-i18n="b5_err">הטעויות הגדולות</button>
+      <button data-k="hit" onclick="pick5b('hit')" data-i18n="b5_hit">הצלחות בביטחון גבוה</button>
+    </div>
+    <div class="cards" id="cards5"></div>
+    <div class="callout c-info" id="note5b"></div>
+  </div>
+
+  <!-- ===== SCORECARD ===== -->
+  <div class="section" id="score">
+    <span class="eyebrow" data-i18n="eb6">כרטיס ציונים</span>
+    <h2 data-i18n="t6">מודל הגובה — חמש מתוך חמש</h2>
+    <p class="lead" data-i18n="l6">זה מה שהופך מספר ל-M3 אמיתי: לא הציון, אלא חמש הבדיקות מאחוריו. וזה בדיוק מה שהסוכן יעטוף ב-M4.</p>
+    <div class="takeaways" id="scorecard"></div>
+    <p class="note" data-i18n="note6">המקור: M3_האם_המודל_שלכם_טוב.md · המספרים: verify_model.py על GeoNames ישראל (CC BY 4.0).</p>
+  </div>
+</div>
+
+<script>
+// ===== real numbers — output of verify_model.py on the GeoNames models =====
+const DATA = {
+  beat: {
+    elevation:  {kpi:'MAE', unit:" מ'", floor:303, model:68, lift:'+77.6%', pass:true, lowerBetter:true, fl:'dummy · חציון', ml:'Random Forest'},
+    feature:    {kpi:'balanced acc', unit:'', floor:0.125, model:0.419, lift:'+29.4', pass:true, lowerBetter:false, fl:'dummy · רוב', ml:'HistGBM'},
+    population: {kpi:'MAE', unit:'', floor:19463, model:18240, lift:'+6.3%', pass:false, lowerBetter:true, fl:'dummy · חציון', ml:'Random Forest'}
+  },
+  tvt: { depths:['2','4','6','8','12','∞'], val:[160.6,121.6,85.4,64.6,42.0,33.2], test:30.8, bestIdx:5 },
+  smell: { clean:68, leaky:7, cleanTrain:10, leakyTrain:1 },
+  metric: { dummyAcc:35, dummyBal:12.5, modelAcc:52, modelBal:42 },
+  classes: [['S',3637],['H',1849],['P',1835],['T',1314],['L',786],['R',722],['V',98],['A',47]],
+  slices: [['A',121,11],['T',83,336],['H',79,414],['L',74,169],['P',62,353],['S',58,743],['V',43,22],['R',43,67]],
+  errors: [
+    ['Baptism Site of Jesus Christ','S · RLG',-386,182],
+    ['Kokhav HaYarden','S · ANS',299,-183],
+    ['Har H̱emar','T · MT',-126,348],
+    ['Naẖal Merot','H · STM',181,616]
+  ],
+  hits: [
+    ['Har ‘Almon','T · MT',721,721],
+    ['‘Ein el Qurra','P · PPLQ',690,690],
+    ['Kafr Sumay‘','P · PPLX',590,590],
+    ['Kikar HaNiẕaẖon','S · RDCR',27,27]
+  ]
+};
+const FEATURES = [
+  {n:'latitude / longitude', dHe:'מיקום המקום', dEn:'the place location', leak:false, vHe:'בטוח — ידוע תמיד', vEn:'safe — always known'},
+  {n:'feature_class', dHe:'סוג המקום (הר/מים/יישוב)', dEn:'place type', leak:false, vHe:'בטוח — לא תלוי בגובה', vEn:'safe — independent of elevation'},
+  {n:'admin1_code', dHe:'מחוז מנהלי', dEn:'administrative district', leak:false, vHe:'בטוח — ידוע מראש', vEn:'safe — known in advance'},
+  {n:'neighbor_elevation', dHe:'גובה השכן הקרוב', dEn:"nearest neighbor's elevation", leak:true, vHe:'דולף! זו כמעט התשובה עצמה', vEn:'leaks! that is almost the answer itself'},
+  {n:'elevation_rounded', dHe:'הגובה מעוגל ל-10 מ\'', dEn:'elevation rounded to 10 m', leak:true, vHe:'דולף! זה ה-target בתחפושת', vEn:'leaks! the target in disguise'},
+  {n:'dem (raw)', dHe:'הגובה הגולמי מ-GeoNames', dEn:'the raw elevation from GeoNames', leak:true, vHe:'דולף! זה בדיוק מה שחוזים', vEn:'leaks! that is exactly what we predict'}
+];
+
+// ===== CHECK 1 =====
+let cur1='elevation';
+function pick1(k){cur1=k;document.querySelectorAll('#seg1 button').forEach(b=>b.classList.toggle('active',b.dataset.k===k));render1();}
+function render1(){
+  const d=DATA.beat[cur1],T=I18N[lang];
+  const mx=Math.max(d.floor,d.model);
+  const fmt=v=>cur1==='feature'?v.toFixed(3):(d.kpi==='MAE'&&cur1==='population'?Math.round(v).toLocaleString():Math.round(v));
+  const modelGood=d.lowerBetter?'#22c55e':'#22c55e';
+  document.getElementById('bars1').innerHTML=
+    `<div class="barrow"><span class="name">${d.fl}</span><div class="bartrack"><div class="barfill" style="background:#64748b;width:${Math.round(d.floor/mx*100)}%"></div></div><span class="pct" style="color:#94a3b8">${fmt(d.floor)}${d.unit}</span></div>`+
+    `<div class="barrow"><span class="name">${d.ml}</span><div class="bartrack"><div class="barfill" style="background:${modelGood};width:${Math.round(d.model/mx*100)}%"></div></div><span class="pct" style="color:#86efac">${fmt(d.model)}${d.unit}</span></div>`;
+  document.getElementById('v1').innerHTML=d.pass
+    ?`<div class="verdict v-pass">✅ ${T.v1_pass} · ${d.lift}${cur1==='feature'?' '+T.pts:''}</div>`
+    :`<div class="verdict v-fail">❌ ${T.v1_fail} · ${d.lift}</div>`;
+  const note=document.getElementById('note1');note.className='callout '+(d.pass?'c-good':'c-warn');
+  note.innerHTML=T['note1_'+cur1];
+}
+
+// ===== CHECK 2 =====
+let revealed2=false;
+function onDepth2(){revealed2=false;document.getElementById('revealBtn').disabled=false;render2();}
+function render2(){
+  const i=+document.getElementById('depth2').value,T=I18N[lang];
+  document.getElementById('depthVal').textContent=DATA.tvt.depths[i];
+  const val=DATA.tvt.val[i],mxV=DATA.tvt.val[0];
+  document.getElementById('b2val').style.width=Math.round(val/mxV*100)+'%';
+  document.getElementById('b2valP').textContent=val.toFixed(0)+" מ'";
+  if(revealed2){
+    document.getElementById('b2te').style.width=Math.round(DATA.tvt.test/mxV*100)+'%';
+    document.getElementById('b2teP').textContent=DATA.tvt.test.toFixed(0)+" מ'";
+  }else{
+    document.getElementById('b2te').style.width='0';
+    document.getElementById('b2teP').textContent='?';
+  }
+  const best=i===DATA.tvt.bestIdx;
+  const note=document.getElementById('note2b');
+  if(revealed2){note.className='callout c-good';note.innerHTML=T.note2b_revealed;}
+  else{note.className='callout c-info';note.innerHTML=best?T.note2b_best:T.note2b_pick;}
+}
+function revealTest(){revealed2=true;document.getElementById('revealBtn').disabled=true;document.getElementById('depth2').value=DATA.tvt.bestIdx;render2();}
+
+// ===== CHECK 3 =====
+function renderChips(){
+  const T=I18N[lang];
+  document.getElementById('chips3').innerHTML=FEATURES.map((f,i)=>
+    `<div class="chip" id="chip${i}" onclick="this.classList.toggle('mine')">`+
+    `<span class="cn">${f.n}</span><span class="cd">${lang==='he'?f.dHe:f.dEn}</span>`+
+    `<span class="cv">${(f.leak?'⚠️ ':'✅ ')+(lang==='he'?f.vHe:f.vEn)}</span></div>`).join('');
+}
+function revealChips(){
+  FEATURES.forEach((f,i)=>{const el=document.getElementById('chip'+i);el.classList.add('revealed',f.leak?'leak':'safe');});
+}
+let leakOn=false;
+function toggleLeak(){leakOn=!leakOn;document.getElementById('leakSwitch').classList.toggle('on',leakOn);renderLeak();}
+function renderLeak(){
+  const T=I18N[lang],s=DATA.smell;
+  const tr=leakOn?s.leakyTrain:s.cleanTrain, te=leakOn?s.leaky:s.clean, mx=72;
+  document.getElementById('lkTrain').style.width=Math.round((mx-tr)/mx*100)+'%';
+  document.getElementById('lkTest').style.width=Math.round((mx-te)/mx*100)+'%';
+  document.getElementById('lkTrainP').textContent=tr+" מ'";
+  document.getElementById('lkTestP').textContent=te+" מ'";
+  document.getElementById('leakLabel').textContent=leakOn?T.lk_on:T.lk_off;
+  const note=document.getElementById('lkNote');note.className='callout '+(leakOn?'c-warn':'c-info');
+  note.innerHTML=leakOn?T.lk_note_on:T.lk_note_off;
+}
+
+// ===== CHECK 4 =====
+function renderClassBal(){
+  const T=I18N[lang];
+  document.getElementById('classBal').innerHTML=T.cb_lbl+' '+DATA.classes.map(([c,n])=>
+    `<span><span class="dot" style="background:${c==='S'?'#f59e0b':'#475569'}"></span>${c} ${Math.round(n/10288*100)}%</span>`).join('');
+}
+let cur4='acc';
+function pick4(k){cur4=k;document.querySelectorAll('#seg4 button').forEach(b=>b.classList.toggle('active',b.dataset.k===k));render4();}
+function render4(){
+  const T=I18N[lang],m=DATA.metric;
+  const dummy=cur4==='acc'?m.dummyAcc:m.dummyBal, model=cur4==='acc'?m.modelAcc:m.modelBal;
+  document.getElementById('bars4').innerHTML=
+    `<div class="barrow"><span class="name">${T.m4_dummy}</span><div class="bartrack"><div class="barfill" style="background:${cur4==='acc'?'#f59e0b':'#ef4444'};width:${dummy}%"></div></div><span class="pct" style="color:${cur4==='acc'?'#fbbf24':'#fca5a5'}">${dummy}%</span></div>`+
+    `<div class="barrow"><span class="name">${T.m4_model}</span><div class="bartrack"><div class="barfill" style="background:#22c55e;width:${model}%"></div></div><span class="pct" style="color:#86efac">${model}%</span></div>`;
+  const note=document.getElementById('note4');note.className='callout '+(cur4==='acc'?'c-warn':'c-good');
+  note.innerHTML=T['note4_'+cur4];
+}
+
+// ===== CHECK 5 =====
+let sel5=null;
+function renderSlices(){
+  const T=I18N[lang],mx=Math.max(...DATA.slices.map(s=>s[1]));
+  document.getElementById('slices5').innerHTML=DATA.slices.map(([c,mae,n],i)=>{
+    const worst=i===0,col=worst?'#ef4444':(mae<60?'#22c55e':'#3b82f6');
+    return `<div class="barrow" style="cursor:pointer" onclick="selSlice(${i})"><span class="name">${c} <span style="color:#64748b">(n=${n})</span></span><div class="bartrack"><div class="barfill" style="background:${col};width:${Math.round(mae/mx*100)}%"></div></div><span class="pct" style="color:${worst?'#fca5a5':'#cbd5e1'}">${mae} מ'</span></div>`;
+  }).join('');
+}
+function selSlice(i){sel5=i;const T=I18N[lang],[c,mae,n]=DATA.slices[i];const best=DATA.slices[DATA.slices.length-1];
+  const note=document.getElementById('note5');note.className='callout '+(i===0?'c-warn':'c-info');
+  note.innerHTML=T.slice_msg.replace('{c}',c).replace('{mae}',mae).replace('{n}',n).replace('{bc}',best[0]).replace('{bmae}',best[1]).replace('{ratio}',(mae/best[1]).toFixed(1));
+}
+let cur5b='err';
+function pick5b(k){cur5b=k;document.querySelectorAll('#seg5b button').forEach(b=>b.classList.toggle('active',b.dataset.k===k));render5b();}
+function render5b(){
+  const T=I18N[lang],rows=cur5b==='err'?DATA.errors:DATA.hits;
+  document.getElementById('cards5').innerHTML=rows.map(([name,type,act,pred])=>{
+    const err=Math.abs(act-pred);
+    return `<div class="ecard ${cur5b}"><div class="et">${name}</div><div class="es">${type}</div>`+
+      `<div class="er"><span>${T.c5_act}</span><b>${act} מ'</b></div>`+
+      `<div class="er"><span>${T.c5_pred}</span><b>${Math.round(pred)} מ'</b></div>`+
+      `<div class="er"><span>${T.c5_err}</span><b style="color:${cur5b==='err'?'#fca5a5':'#86efac'}">${Math.round(err)} מ'</b></div></div>`;
+  }).join('');
+  const note=document.getElementById('note5b');note.className='callout '+(cur5b==='err'?'c-warn':'c-good');
+  note.innerHTML=T['note5b_'+cur5b];
+}
+
+// ===== SCORECARD =====
+function renderScore(){
+  const T=I18N[lang];
+  document.getElementById('scorecard').innerHTML=T.score.map(s=>
+    `<div class="scorerow"><div class="mark ok">✓</div><div><div class="ttl">${s.t}</div><div class="dsc">${s.d}</div></div><div class="grade">${s.g}</div></div>`).join('');
+}
+
+// ===== i18n =====
+const I18N={
+ he:{nav_back:'‹ חזרה למדריכים', pts:'נק׳',
+  v1_pass:'עבר את הרצפה', v1_fail:'בקושי עבר',
+  note1_elevation:'מודל הגובה מנפץ את הרצפה: MAE צונח מ-303 ל-68 מ\' — שיפור 77%. כאן יש אות מרחבי עצום, וזו המטרה ה"נכונה" לקורס.',
+  note1_feature:'סיווג סוג-מקום: balanced accuracy מזנקת מ-0.125 (=1/8, ניחוש) ל-0.42 — שיפור אמיתי של 29 נקודות על בעיה לא-מאוזנת.',
+  note1_population:'אוכלוסייה: גם אחרי הפרדת A/P ולוג, המודל משפר רק 6% על החציון. <b>לא ניצחנו ממש</b> — וזו תוצאה אמיתית: הפיצ\'רים לא מנבאים אוכלוסייה. תובנה להצגה, לא באג.',
+  k_train:'MAE על TRAIN (מ\')',k_test:'MAE על TEST (מ\')',k_gap:'הפער',
+  note2b_pick:'גררו לעומק שנותן את ה-validation הטוב ביותר (הנמוך ביותר).',
+  note2b_best:'זה העומק הטוב ביותר ב-validation. עכשיו — בלי להציץ קודם — חשפו את ה-test.',
+  note2b_revealed:'בעומק ∞: validation 33 מ\' · <b>test 31 מ\'</b> — זה המספר ההוגן שמדווחים. שימו לב שהם קרובים: כי בחרנו לפי validation בלבד ושמרנו את ה-test נקי.',
+  depth_lbl:'עומק העץ (max_depth)',bn_val:'MAE על VALIDATION',bn_test:'MAE על TEST',reveal:'חשפו את ה-test (פעם אחת)',
+  lk_off:'בלי feature דולף',lk_on:'עם feature דולף ⚠️',lk_train:'MAE על TRAIN',lk_test:'MAE על TEST',
+  lk_note_off:'כרגע בלי דליפה: ה-test מציאותי (68 מ\'). הדליקו את המתג.',
+  lk_note_on:'<b>שימו לב:</b> ה-test צנח ל-7 מ\' — כמעט מושלם, ובלי פער מחשיד מול ה-train. ובכל זאת זה <b>שקר</b>: המודל קורא feature שמכיל את התשובה, שלא יהיה קיים בזמן אמת. ככה זליגה מתחפשת להצלחה.',
+  reveal_chips:'גלו את התשובות',
+  tw_rand:'אקראית (דולפת)',tw_spat:'מרחבית (הוגנת)',
+  cb_lbl:'התפלגות 8 המחלקות:',m4_dummy:'מודל-דמה (מנחש "S" תמיד)',m4_model:'מודל אמיתי (HistGBM)',
+  note4_acc:'⚠️ לפי <b>accuracy</b> מודל-הדמה מקבל 35% — נשמע סביר! אבל הוא פשוט אומר "S" תמיד ולא למד כלום. accuracy על דאטה לא-מאוזן מחמיא לחסר-תועלת.',
+  note4_bal:'✅ <b>balanced accuracy</b> חושף את האמת: מודל-הדמה צונח ל-12.5% (=1/8, ניחוש טהור), והמודל האמיתי (42%) מנצח אותו פי 3. על דאטה לא-מאוזן — תמיד balanced accuracy או Macro-F1.',
+  note5_0:'לחצו על חתך feature_class כדי לראות את הטעות שלו לעומק.',
+  slice_msg:'חתך <b>{c}</b>: MAE {mae} מ\' (n={n}). החתך הטוב ביותר הוא {bc} ({bmae} מ\') — פער של פי {ratio}. תכונות טופוגרפיה/מים קשות כי גובהן קיצוני; הממוצע (68) הסתיר את זה.',
+  b5_err:'הטעויות הגדולות',b5_hit:'הצלחות בביטחון גבוה',c5_act:'גובה אמיתי',c5_pred:'חיזוי',c5_err:'טעות',
+  note5b_err:'הטעויות הגדולות הן מקומות שגובהם <b>חורג מהשכנים</b> — אתר דתי עמוק ליד ים המלח, פסגת הר בודדת. מודל מבוסס-מיקום מנבא את גובה הסביבה, אז חריגים מקומיים מפילים אותו.',
+  note5b_hit:'ההצלחות המדויקות הן מקומות שגובהם <b>תואם את השכנים</b> — מה שמאשר שהמודל לומד את המבנה המרחבי (אוטוקורלציה 0.96), לא משהו מקרי. "צודק מהסיבה הנכונה".',
+  score:[
+   {t:'1 · ניצחנו את ה-baseline',d:'MAE 303 → 68 מ\' (שיפור 77%)',g:'✅ עבר'},
+   {t:'2 · מדדנו על test, לא train',d:'הפער train↔test נחשף; val/test = 33/31',g:'✅ עבר'},
+   {t:'3 · אין זליגת מידע',d:'fit על train בלבד · חלוקה מרחבית · מבחן ריח',g:'✅ עבר'},
+   {t:'4 · המדד מתאים',d:'balanced accuracy, לא accuracy על דאטה לא-מאוזן',g:'✅ עבר'},
+   {t:'5 · יודעים איפה הוא טועה',d:'פילוח לפי חתך + ניתוח טעויות אמיתיות',g:'✅ עבר'}
+  ]},
+ en:{nav_back:'‹ back to guides', pts:'pts',
+  v1_pass:'cleared the floor', v1_fail:'barely cleared',
+  note1_elevation:'The elevation model crushes the floor: MAE drops from 303 to 68 m — a 77% gain. There is a huge spatial signal here, the "right" target for the course.',
+  note1_feature:'Place-type classification: balanced accuracy jumps from 0.125 (=1/8, guessing) to 0.42 — a real 29-point gain on an imbalanced problem.',
+  note1_population:'Population: even after A/P separation and a log target, the model improves only 6% over the median. <b>We did not really win</b> — and that is a real result: the features do not predict population. An insight to present, not a bug.',
+  k_train:'MAE on TRAIN (m)',k_test:'MAE on TEST (m)',k_gap:'the gap',
+  note2b_pick:'Drag to the depth that gives the best (lowest) validation score.',
+  note2b_best:'That is the best depth on validation. Now — without peeking first — reveal the test.',
+  note2b_revealed:'At depth ∞: validation 33 m · <b>test 31 m</b> — that is the honest number you report. They are close because we chose on validation only and kept the test clean.',
+  depth_lbl:'tree depth (max_depth)',bn_val:'MAE on VALIDATION',bn_test:'MAE on TEST',reveal:'Reveal the test (once)',
+  lk_off:'no leaky feature',lk_on:'with leaky feature ⚠️',lk_train:'MAE on TRAIN',lk_test:'MAE on TEST',
+  lk_note_off:'No leakage now: test is realistic (68 m). Flip the switch.',
+  lk_note_on:'<b>Notice:</b> test crashed to 7 m — near-perfect, with no suspicious gap vs train. Yet it is a <b>lie</b>: the model reads a feature that contains the answer, which won\'t exist at prediction time. That\'s leakage masquerading as success.',
+  reveal_chips:'Reveal the answers',
+  tw_rand:'random (leaky)',tw_spat:'spatial (honest)',
+  cb_lbl:'The 8 classes:',m4_dummy:'dummy (always says "S")',m4_model:'real model (HistGBM)',
+  note4_acc:'⚠️ By <b>accuracy</b> the dummy scores 35% — sounds reasonable! But it just says "S" every time and learned nothing. Accuracy on imbalanced data flatters the useless model.',
+  note4_bal:'✅ <b>Balanced accuracy</b> exposes the truth: the dummy collapses to 12.5% (=1/8, pure guessing), and the real model (42%) beats it 3×. On imbalanced data — always balanced accuracy or Macro-F1.',
+  note5_0:'Click a feature_class slice to inspect its error.',
+  slice_msg:'Slice <b>{c}</b>: MAE {mae} m (n={n}). The best slice is {bc} ({bmae} m) — a {ratio}× gap. Terrain/water features are hard because their elevation is extreme; the average (68) hid that.',
+  b5_err:'biggest misses',b5_hit:'confident-correct',c5_act:'actual elevation',c5_pred:'predicted',c5_err:'error',
+  note5b_err:'The biggest misses are places whose elevation <b>differs from their neighbors</b> — a deep religious site by the Dead Sea, a lone mountain peak. A location-based model predicts the surroundings\' elevation, so local outliers break it.',
+  note5b_hit:'The precise hits are places whose elevation <b>matches their neighbors</b> — confirming the model learns the spatial structure (autocorrelation 0.96), not something accidental. "Right for the right reason".',
+  score:[
+   {t:'1 · beat the baseline',d:'MAE 303 → 68 m (77% gain)',g:'✅ pass'},
+   {t:'2 · measured on test, not train',d:'train↔test gap exposed; val/test = 33/31',g:'✅ pass'},
+   {t:'3 · no data leakage',d:'fit on train only · spatial split · smell test',g:'✅ pass'},
+   {t:'4 · the right metric',d:'balanced accuracy, not accuracy on imbalanced data',g:'✅ pass'},
+   {t:'5 · know where it errs',d:'per-slice breakdown + real error analysis',g:'✅ pass'}
+  ]}
+};
+
+let lang='he';
+function setLang(l){
+  lang=l;document.documentElement.lang=l;document.documentElement.dir=l==='he'?'rtl':'ltr';
+  document.getElementById('bt-he').classList.toggle('active',l==='he');
+  document.getElementById('bt-en').classList.toggle('active',l==='en');
+  document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n');if(EN_STATIC[k]!==undefined)el.innerHTML=(l==='en'?EN_STATIC[k]:HE_STATIC[k]);});
+  renderChips();renderClassBal();renderAll();
+}
+function renderAll(){render1();render2();renderLeak();render4();renderSlices();render5b();renderScore();if(sel5!==null)selSlice(sel5);}
+
+const HE_STATIC={},EN_STATIC={
+ title:'Is your model actually good?',
+ subtitle:'You built a model, there\'s a number on the screen. Now the one question that separates a real model from a pretty notebook: <b>can you trust that number?</b> Five checks. Each one live — on real numbers from the elevation model we trained on GeoNames Israel.',
+ ground:'🗺️ Every number here is real output of verify_model.py on a RandomForest elevation model',
+ eb1:'The baseline',t1:'Did you beat the baseline?',
+ l1:'The baseline is the floor: a dumb guess (the median for regression, the majority for classification). A model that doesn\'t clear it added no value — even if the number looks fine. Pick a target and see the comparison on the same test set.',
+ b1_elev:'Elevation ✅',b1_feat:'Place type ✅',b1_pop:'Population ❌',
+ eb2:'test not train',t2:'Did you measure on test, not train?',
+ l2:'A train score is always inflated — the model already saw the answers. Here is our elevation model, the exact same model, scored on both sets:',
+ note2a:'<b>This gap is real overfitting:</b> a full-depth RandomForest nearly "memorizes" the train (9 m error) but errs 68 m on new places. It doesn\'t disqualify the model — <b>the honest number is always the test one</b>. The gap itself is the diagnosis.',
+ t2b:'The upgrade: train / validation / test',
+ l2b:'The moment you <b>choose</b> a depth by the test score — you already overfit to it. The fix: tune on validation (peek freely), and touch the test once at the end. Drag the depth to see validation; then reveal the test.',
+ eb3:'data leakage',t3:'No data leakage?',
+ l3:'Leakage = information that won\'t be available at prediction time, yet sneaked into training. The score looks excellent in the lab and collapses in reality. Unlike overfitting — leakage is <b>silent</b>: the test looks great too.',
+ t3a:'The prediction-moment test — click each feature: safe or leaks?',
+ l3a:'To predict a place\'s elevation: for each column ask "did I already have this value <b>before</b> the answer was known?". Guess, then reveal.',
+ t3b:'The smell test — the score that lies',
+ l3b:'Inject a feature that secretly contains the answer (like "neighbor\'s elevation"). Flip the switch and watch the test "jump" to excellent — with no suspicious gap.',
+ t3c:'The spatial trap — a random split that lies',
+ l3c:'The same KNN elevation model, two splits. A random split lets each test point borrow a near-identical "twin" from train (spatial autocorrelation 0.96) — so the score is inflated.',
+ note3c:'The random split looks 3× better — but it\'s a lie. On spatial data you split by place (GroupSplit), not by row. Same principle: scaler/encoder fit on train only, otherwise the test leaks through preprocessing.',
+ eb4:'the right metric',t4:'Does the metric fit the problem?',
+ l4:'For predicting <b>place type</b> (feature_class) there are 8 imbalanced classes — the most common (S) alone is 35%. Pick a metric and see what it says about a dummy that <b>always</b> guesses the majority class.',
+ b4_bal:'Balanced accuracy',
+ eb5:'where it errs',t5:'Do you know where it errs?',
+ l5:'One overall number (MAE 68 m) hides the story. Break the error down by slice — and see where the model collapses. Click a slice.',
+ t5b:'Not just the average — real examples',
+ b5_err:'biggest misses',b5_hit:'confident-correct',
+ eb6:'scorecard',t6:'The elevation model — five out of five',
+ l6:'This is what turns a number into a real M3: not the score, but the five checks behind it. And that\'s exactly what the agent will wrap in M4.',
+ note6:'Source: M3_האם_המודל_שלכם_טוב.md · numbers: verify_model.py on GeoNames Israel (CC BY 4.0).'
+};
+document.querySelectorAll('[data-i18n]').forEach(el=>{HE_STATIC[el.getAttribute('data-i18n')]=el.innerHTML;});
+
+// ===== init =====
+renderChips();renderClassBal();renderAll();
+</script>
+</body>
+</html>
