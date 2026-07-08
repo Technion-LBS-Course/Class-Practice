@@ -10,6 +10,16 @@ Run:  export GROQ_API_KEY=...   &&   python M4_tool_use_demo.py
 import json, os
 from groq import Groq
 
+# Load GROQ_API_KEY from a local .env (gitignored) so the demo runs without an
+# export — and so the key never appears on screen when you present this file.
+_env = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_env):
+    for _line in open(_env, encoding="utf-8"):
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k, _v)
+
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
 MODEL = "llama-3.3-70b-versatile"            # supports tools on Groq
 
